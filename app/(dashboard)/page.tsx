@@ -75,7 +75,7 @@ export default function MyTaskPage() {
   const [selectedDate, setSelectedDate] = useState(17)
   const [currentWeekStart, setCurrentWeekStart] = useState(15)
 
-  const [tasks, setTasks] = useState<Task[]>({
+  const [tasks, setTasks] = useState<Record<string, Task[]>>({
     "This Week": [
       {
         id: 1,

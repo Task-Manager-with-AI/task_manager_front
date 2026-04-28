@@ -1,43 +1,28 @@
 "use client"
 
 import type React from "react"
-import { useState } from "react"
 import DashboardLayout from "@/components/dashboard-layout"
+import { useProjects } from "@/features/projects/projects.hooks"
 
-interface Project {
-  id: string
-  name: string
-  color: string
-}
+const SIDEBAR_COLORS = [
+  "bg-pink-200",
+  "bg-green-200",
+  "bg-blue-200",
+  "bg-yellow-200",
+  "bg-purple-200",
+  "bg-red-200",
+  "bg-orange-200",
+  "bg-teal-200",
+]
 
-interface Note {
-  id: string
-  title: string
-  description: string
-  completed: boolean
-}
+export default function ClientLayout({ children }: { children: React.ReactNode }) {
+  const { data: projects } = useProjects()
 
-export default function ClientLayout({
-  children,
-}: {
-  children: React.ReactNode
-}) {
-  const [projects, setProjects] = useState<Project[]>([
-    { id: "1", name: "Event Planning", color: "bg-pink-200" },
-    { id: "2", name: "Breakfast Plan", color: "bg-green-200" },
-  ])
+  const sidebarProjects = (projects ?? []).map((p, i) => ({
+    id: p.id,
+    name: p.name,
+    color: SIDEBAR_COLORS[i % SIDEBAR_COLORS.length],
+  }))
 
-  const handleAddProject = (project: Omit<Project, "id">) => {
-    const newProject = {
-      ...project,
-      id: Date.now().toString(),
-    }
-    setProjects([...projects, newProject])
-  }
-
-  return (
-    <DashboardLayout projects={projects} onAddProject={handleAddProject}>
-      {children}
-    </DashboardLayout>
-  )
+  return <DashboardLayout projects={sidebarProjects}>{children}</DashboardLayout>
 }

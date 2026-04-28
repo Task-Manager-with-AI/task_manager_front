@@ -1,10 +1,15 @@
 import type React from "react"
 import { Inter } from "next/font/google"
 import "./globals.css"
-import ClientLayout from "./client-layout"
 import { ThemeProvider } from "@/components/theme-provider"
+import { QueryProvider } from "@/app/query-provider"
 
 const inter = Inter({ subsets: ["latin"] })
+
+export const metadata = {
+  title: "Task Manager",
+  description: "Agile task manager with AI features",
+}
 
 export default function RootLayout({
   children,
@@ -15,13 +20,9 @@ export default function RootLayout({
     <html lang="en" suppressHydrationWarning>
       <body className={inter.className}>
         <ThemeProvider attribute="class" defaultTheme="light" enableSystem disableTransitionOnChange>
-          <ClientLayout>{children}</ClientLayout>
+          <QueryProvider>{children}</QueryProvider>
         </ThemeProvider>
       </body>
     </html>
   )
 }
-
-export const metadata = {
-      generator: 'v0.dev'
-    };

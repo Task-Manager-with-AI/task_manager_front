@@ -7,8 +7,7 @@ import { useRouter, usePathname } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
+import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { Label } from "@/components/ui/label"
@@ -19,7 +18,6 @@ import {
   Search,
   Plus,
   Bell,
-  ChevronDown,
   BarChart3,
   MessageSquare,
   FileText,
@@ -28,12 +26,11 @@ import {
   HelpCircle,
   User,
   LogOut,
-  Folder,
-  LayoutTemplateIcon as Template,
-  Import,
   CheckCircle,
   Users,
 } from "lucide-react"
+import { useCreateProject } from "@/features/projects/projects.hooks"
+import { useCurrentUser, useLogout } from "@/features/auth/auth.hooks"
 
 interface Project {
   id: string
@@ -44,18 +41,25 @@ interface Project {
 interface DashboardLayoutProps {
   children: React.ReactNode
   projects: Project[]
-  onAddProject: (project: Omit<Project, "id">) => void
 }
 
-export default function DashboardLayout({ children, projects, onAddProject }: DashboardLayoutProps) {
+export default function DashboardLayout({ children, projects }: DashboardLayoutProps) {
+  const { mutate: createProject } = useCreateProject()
+  const { data: currentUser } = useCurrentUser()
+  const { mutate: logout, isPending: isLoggingOut } = useLogout()
   const router = useRouter()
   const pathname = usePathname()
   const [newProjectName, setNewProjectName] = useState("")
-  const [newProjectColor, setNewProjectColor] = useState("bg-blue-200")
   const [isProjectDialogOpen, setIsProjectDialogOpen] = useState(false)
 
-  // Get current user (John Doe - people_11)
-  const currentUser = people.find((person) => person.id === "people_11") || people[11]
+  const currentUserName = currentUser?.name ?? "User"
+  const currentUserEmail = currentUser?.email ?? "Signed in"
+  const currentUserInitials = currentUserName
+    .split(" ")
+    .map((part) => part[0])
+    .join("")
+    .slice(0, 2)
+    .toUpperCase()
 
   const sidebarItems = [
     { name: "Dashboard", icon: BarChart3, path: "/dashboard" },
@@ -65,15 +69,6 @@ export default function DashboardLayout({ children, projects, onAddProject }: Da
     { name: "Chats", icon: MessageSquare, path: "/chats" },
     { name: "Documents", icon: FileText, path: "/documents" },
     { name: "Receipts", icon: Receipt, path: "/receipts" },
-  ]
-
-  const colorOptions = [
-    { name: "Blue", value: "bg-blue-200 dark:bg-blue-800" },
-    { name: "Pink", value: "bg-pink-200 dark:bg-pink-800" },
-    { name: "Green", value: "bg-green-200 dark:bg-green-800" },
-    { name: "Yellow", value: "bg-yellow-200 dark:bg-yellow-800" },
-    { name: "Purple", value: "bg-purple-200 dark:bg-purple-800" },
-    { name: "Red", value: "bg-red-200 dark:bg-red-800" },
   ]
 
   const notifications = [
@@ -109,13 +104,15 @@ export default function DashboardLayout({ children, projects, onAddProject }: Da
 
   const handleAddProject = () => {
     if (newProjectName.trim()) {
-      onAddProject({
-        name: newProjectName.trim(),
-        color: newProjectColor,
-      })
-      setNewProjectName("")
-      setNewProjectColor("bg-blue-200 dark:bg-blue-800")
-      setIsProjectDialogOpen(false)
+      createProject(
+        { name: newProjectName.trim() },
+        {
+          onSuccess: () => {
+            setNewProjectName("")
+            setIsProjectDialogOpen(false)
+          },
+        }
+      )
     }
   }
 
@@ -150,7 +147,7 @@ export default function DashboardLayout({ children, projects, onAddProject }: Da
               <span className="text-sm font-medium text-gray-900 dark:text-white">Projects</span>
               <Dialog open={isProjectDialogOpen} onOpenChange={setIsProjectDialogOpen}>
                 <DialogTrigger asChild>
-                  <Button size="sm" variant="ghost" className="h-6 w-6 p-0">
+                  <Button size="sm" variant="ghost" className="h-6 w-6 p-0" aria-label="Add project">
                     <Plus className="w-4 h-4" />
                   </Button>
                 </DialogTrigger>
@@ -171,23 +168,6 @@ export default function DashboardLayout({ children, projects, onAddProject }: Da
                         className="bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-white"
                       />
                     </div>
-                    <div>
-                      <Label className="text-gray-700 dark:text-gray-300">Project Color</Label>
-                      <div className="flex space-x-2 mt-2">
-                        {colorOptions.map((color) => (
-                          <button
-                            key={color.value}
-                            onClick={() => setNewProjectColor(color.value)}
-                            className={`w-8 h-8 rounded-full ${color.value} border-2 ${
-                              newProjectColor === color.value
-                                ? "border-gray-800 dark:border-gray-200"
-                                : "border-gray-300 dark:border-gray-600"
-                            }`}
-                            title={color.name}
-                          />
-                        ))}
-                      </div>
-                    </div>
                     <div className="flex justify-end space-x-2">
                       <Button variant="outline" onClick={() => setIsProjectDialogOpen(false)}>
                         Cancel
@@ -199,10 +179,14 @@ export default function DashboardLayout({ children, projects, onAddProject }: Da
               </Dialog>
             </div>
             {projects.map((project) => (
-              <div key={project.id} className="flex items-center mb-2">
-                <div className={`w-3 h-3 rounded-full ${project.color} mr-2`} />
-                <span className="text-sm text-gray-600 dark:text-gray-300">{project.name}</span>
-              </div>
+              <button
+                key={project.id}
+                onClick={() => router.push(`/projects/${project.id}`)}
+                className="flex items-center mb-2 w-full text-left hover:bg-gray-100 dark:hover:bg-gray-700 rounded px-1 py-0.5"
+              >
+                <div className={`w-3 h-3 rounded-full ${project.color} mr-2 shrink-0`} />
+                <span className="text-sm text-gray-600 dark:text-gray-300 truncate">{project.name}</span>
+              </button>
             ))}
           </div>
 
@@ -234,50 +218,29 @@ export default function DashboardLayout({ children, projects, onAddProject }: Da
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 dark:text-gray-500 w-4 h-4" />
                 <Input
+                  aria-label="Search"
                   placeholder="Search or type a command"
                   className="pl-10 w-80 bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400"
                 />
               </div>
-              <span className="text-sm text-gray-500 dark:text-gray-400">⌘ F</span>
             </div>
 
             <div className="flex items-center space-x-4">
               <div className="flex items-center">
-                <Button className="bg-blue-600 hover:bg-blue-700 dark:bg-blue-700 dark:hover:bg-blue-800 rounded-r-none">
+                <Button
+                  className="bg-blue-600 hover:bg-blue-700 dark:bg-blue-700 dark:hover:bg-blue-800"
+                  onClick={() => setIsProjectDialogOpen(true)}
+                >
                   <Plus className="w-4 h-4 mr-2" />
                   New Project
                 </Button>
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button className="bg-blue-600 hover:bg-blue-700 dark:bg-blue-700 dark:hover:bg-blue-800 rounded-l-none border-l border-blue-500 dark:border-blue-600 px-2">
-                      <ChevronDown className="w-4 h-4" />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent
-                    align="end"
-                    className="bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700"
-                  >
-                    <DropdownMenuItem className="text-gray-900 dark:text-white hover:bg-gray-100 dark:hover:bg-gray-700">
-                      <Folder className="w-4 h-4 mr-2" />
-                      New Folder
-                    </DropdownMenuItem>
-                    <DropdownMenuItem className="text-gray-900 dark:text-white hover:bg-gray-100 dark:hover:bg-gray-700">
-                      <Template className="w-4 h-4 mr-2" />
-                      From Template
-                    </DropdownMenuItem>
-                    <DropdownMenuItem className="text-gray-900 dark:text-white hover:bg-gray-100 dark:hover:bg-gray-700">
-                      <Import className="w-4 h-4 mr-2" />
-                      Import Project
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
               </div>
 
               <ThemeToggle />
 
               <Popover>
                 <PopoverTrigger asChild>
-                  <Button variant="ghost" size="icon" className="relative">
+                  <Button variant="ghost" size="icon" className="relative" aria-label="Open notifications">
                     <Bell className="w-4 h-4" />
                     <span className="absolute -top-1 -right-1 w-2 h-2 bg-red-500 rounded-full"></span>
                   </Button>
@@ -319,15 +282,13 @@ export default function DashboardLayout({ children, projects, onAddProject }: Da
 
               <Popover>
                 <PopoverTrigger asChild>
-                  <Avatar className="w-8 h-8 cursor-pointer">
-                    <AvatarImage src={currentUser.imageURL || "/placeholder.svg"} />
-                    <AvatarFallback className="bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-white">
-                      {currentUser.name
-                        .split(" ")
-                        .map((n) => n[0])
-                        .join("")}
-                    </AvatarFallback>
-                  </Avatar>
+                  <Button variant="ghost" size="icon" className="rounded-full" aria-label="Open account menu">
+                    <Avatar className="w-8 h-8">
+                      <AvatarFallback className="bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-white">
+                        {currentUserInitials}
+                      </AvatarFallback>
+                    </Avatar>
+                  </Button>
                 </PopoverTrigger>
                 <PopoverContent
                   className="w-64 bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700"
@@ -336,17 +297,13 @@ export default function DashboardLayout({ children, projects, onAddProject }: Da
                   <div className="space-y-4">
                     <div className="flex items-center space-x-3">
                       <Avatar className="w-12 h-12">
-                        <AvatarImage src={currentUser.imageURL || "/placeholder.svg"} />
                         <AvatarFallback className="bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-white">
-                          {currentUser.name
-                            .split(" ")
-                            .map((n) => n[0])
-                            .join("")}
+                          {currentUserInitials}
                         </AvatarFallback>
                       </Avatar>
                       <div>
-                        <p className="font-semibold text-gray-900 dark:text-white">{currentUser.name}</p>
-                        <p className="text-sm text-gray-600 dark:text-gray-300">{currentUser.email}</p>
+                        <p className="font-semibold text-gray-900 dark:text-white">{currentUserName}</p>
+                        <p className="text-sm text-gray-600 dark:text-gray-300">{currentUserEmail}</p>
                       </div>
                     </div>
                     <Separator className="bg-gray-200 dark:bg-gray-700" />
@@ -377,9 +334,11 @@ export default function DashboardLayout({ children, projects, onAddProject }: Da
                     <Button
                       variant="ghost"
                       className="w-full justify-start text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 hover:bg-red-50 dark:hover:bg-red-900/20"
+                      disabled={isLoggingOut}
+                      onClick={() => logout()}
                     >
                       <LogOut className="w-4 h-4 mr-2" />
-                      Sign Out
+                      {isLoggingOut ? "Signing out..." : "Sign Out"}
                     </Button>
                   </div>
                 </PopoverContent>

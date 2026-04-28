@@ -1,32 +1,55 @@
-# Task Manager  
+# Task Manager Frontend
 
-started with [this design](https://dribbble.com/shots/25058444-Dashboard-My-Task) from dribble.
+Frontend del proyecto Task Manager construido con Next.js 14 (App Router).
 
-*Automatically synced with your [v0.dev](https://v0.dev) deployments*
+## Requisitos
 
-[![Deployed on Vercel](https://img.shields.io/badge/Deployed%20on-Vercel-black?style=for-the-badge&logo=vercel)](https://vercel.com/dilums-projects/v0-v0-task-manager)
-[![Built with v0](https://img.shields.io/badge/Built%20with-v0.dev-black?style=for-the-badge)](https://v0.dev/chat/projects/ClvVE1vJUOg)
+- Node.js 18+ (recomendado 20 LTS)
+- npm 9+
 
-## Overview
+## Variables de entorno
 
-This repository will stay in sync with your deployed chats on [v0.dev](https://v0.dev).
-Any changes you make to your deployed app will be automatically pushed to this repository from [v0.dev](https://v0.dev).
+1. Copia `.env.example` a `.env.local`.
+2. Ajusta los valores para tu entorno:
 
-## Deployment
+```bash
+NEXT_PUBLIC_API_URL=http://localhost:4000/api/v1
+COOKIE_NAME=access_token
+```
 
-Your project is live at:
+## Desarrollo local
 
-**[https://vercel.com/dilums-projects/v0-v0-task-manager](https://vercel.com/dilums-projects/v0-v0-task-manager)**
+```bash
+npm install
+npm run dev
+```
 
-## Build your app
+## Validaciones antes de push
 
-Continue building your app on:
+```bash
+npm run lint
+npm run typecheck
+npm run build
+```
 
-**[https://v0.dev/chat/projects/ClvVE1vJUOg](https://v0.dev/chat/projects/ClvVE1vJUOg)**
+## Deploy en Vercel (monorepo)
 
-## How It Works
+Configura el proyecto en Vercel con estos valores:
 
-1. Create and modify your project using [v0.dev](https://v0.dev)
-2. Deploy your chats from the v0 interface
-3. Changes are automatically pushed to this repository
-4. Vercel deploys the latest version from this repository
+- **Framework Preset:** Next.js
+- **Root Directory:** `task_manager_front`
+- **Build Command:** `npm run build`
+- **Install Command:** `npm install`
+- **Output Directory:** `.next` (por defecto)
+
+### Environment Variables en Vercel
+
+Configura en el dashboard de Vercel:
+
+- `NEXT_PUBLIC_API_URL` = URL pública de tu backend (por ejemplo `https://api.tu-dominio.com/api/v1`)
+- `COOKIE_NAME` = mismo nombre de cookie usado en backend (por defecto `access_token`)
+
+## Notas de producción
+
+- El backend debe permitir CORS con `credentials: true` para el dominio del frontend en Vercel.
+- El backend debe emitir cookie con `Secure=true` y `SameSite=None` si frontend y backend corren en dominios distintos.
