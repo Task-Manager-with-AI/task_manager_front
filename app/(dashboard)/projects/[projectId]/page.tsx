@@ -6,7 +6,7 @@ import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { z } from "zod"
 import { format } from "date-fns"
-import { ArrowLeft, KanbanSquare, Pencil, Plus, Trash2, UserPlus, Users } from "lucide-react"
+import { ArrowLeft, KanbanSquare, Pencil, Plus, Trash2, UserPlus, Users, Video } from "lucide-react"
 import {
   useAddProjectMember,
   useDeleteProject,
@@ -264,6 +264,10 @@ export default function ProjectDetailPage() {
           <Button variant="outline" onClick={() => router.push(`/projects/${projectId}/kanban`)}>
             <KanbanSquare className="w-4 h-4" />
             Kanban
+          </Button>
+          <Button variant="outline" onClick={() => router.push(`/projects/${projectId}/meetings`)}>
+            <Video className="w-4 h-4" />
+            Reuniones
           </Button>
           <Button variant="outline" onClick={openEditDialog}>
             <Pencil className="w-4 h-4" />
