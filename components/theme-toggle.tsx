@@ -5,8 +5,10 @@ import { Moon, Sun } from "lucide-react"
 import { useTheme } from "next-themes"
 
 import { Button } from "@/components/ui/button"
+import { useTranslation } from "@/components/locale-provider"
 
 export function ThemeToggle() {
+  const { t } = useTranslation()
   const { theme, setTheme } = useTheme()
   const [mounted, setMounted] = React.useState(false)
 
@@ -23,9 +25,14 @@ export function ThemeToggle() {
   }
 
   return (
-    <Button variant="ghost" size="icon" onClick={() => setTheme(theme === "light" ? "dark" : "light")}>
+    <Button
+      variant="ghost"
+      size="icon"
+      aria-label={theme === "light" ? t("common.activateDarkMode") : t("common.activateLightMode")}
+      aria-pressed={theme === "dark"}
+      onClick={() => setTheme(theme === "light" ? "dark" : "light")}
+    >
       {theme === "light" ? <Moon className="h-4 w-4" /> : <Sun className="h-4 w-4" />}
-      <span className="sr-only">Toggle theme</span>
     </Button>
   )
 }

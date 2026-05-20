@@ -7,6 +7,10 @@ export type MeetingStatus =
   | "PROCESSED"
   | "FAILED"
 
+export type MeetingType = "REGULAR" | "DAILY" | "SPRINT_PLANNING"
+
+export type SprintHealth = "GREEN" | "YELLOW" | "RED"
+
 export type SuggestionStatus = "PENDING" | "ACCEPTED" | "REJECTED" | "EDITED"
 
 export interface MeetingParticipant {
@@ -25,6 +29,7 @@ export interface Meeting {
   projectId: string
   createdById: string
   status: MeetingStatus
+  meetingType: MeetingType
   scheduledAt?: string | null
   startedAt?: string | null
   endedAt?: string | null
@@ -36,6 +41,7 @@ export interface Meeting {
   participants: MeetingParticipant[]
   project: { id: string; name: string }
   minute?: { id: string; summary: string } | null
+  dailyAnalysis?: { id: string; sprintHealth: SprintHealth } | null
 }
 
 export interface Agreement {
@@ -57,7 +63,7 @@ export interface TaskSuggestion {
   createdAt: string
   updatedAt: string
   suggestedFor?: { id: string; name: string; email: string } | null
-  task?: { id: string; title: string; status: string } | null
+  task?: { id: string; title: string; column?: { id: string; title: string } } | null
   minute?: {
     id: string
     meetingId: string
@@ -90,4 +96,34 @@ export interface CreateMeetingDto {
   description?: string
   scheduledAt?: string
   participantIds?: string[]
+}
+
+export interface DailyEntry {
+  id: string
+  participantName: string
+  yesterday: string
+  today: string
+  blockers: string[]
+}
+
+export interface DailyAnalysis {
+  id: string
+  meetingId: string
+  sprintHealth: SprintHealth
+  overallBlockers: string[]
+  createdAt: string
+  entries: DailyEntry[]
+}
+
+export interface AutoKanbanUpdate {
+  id: string
+  meetingId: string
+  taskId?: string | null
+  taskTitle: string
+  newStatus: "DONE" | "IN_PROGRESS" | "BLOCKED"
+  mentionedBy: string
+  confidence: number
+  notes?: string | null
+  applied: boolean
+  createdAt: string
 }

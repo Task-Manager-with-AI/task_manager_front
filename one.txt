@@ -1,3 +1,0 @@
-one
-este es uno
-Hello world

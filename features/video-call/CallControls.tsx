@@ -2,6 +2,7 @@
 
 import { Mic, MicOff, PhoneOff, Video, VideoOff } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { useTranslation } from "@/components/locale-provider"
 
 interface CallControlsProps {
   audioEnabled: boolean
@@ -20,13 +21,15 @@ export function CallControls({
   onLeave,
   leaving,
 }: CallControlsProps) {
+  const { t } = useTranslation()
+
   return (
     <div className="flex items-center justify-center gap-3 border-t border-gray-800 bg-gray-900 p-4">
       <Button
         variant={audioEnabled ? "secondary" : "destructive"}
         size="icon"
         onClick={onToggleAudio}
-        aria-label={audioEnabled ? "Silenciar micrófono" : "Activar micrófono"}
+        aria-label={audioEnabled ? t("videoCall.muteMic") : t("videoCall.unmuteMic")}
       >
         {audioEnabled ? <Mic className="h-5 w-5" /> : <MicOff className="h-5 w-5" />}
       </Button>
@@ -34,18 +37,13 @@ export function CallControls({
         variant={videoEnabled ? "secondary" : "destructive"}
         size="icon"
         onClick={onToggleVideo}
-        aria-label={videoEnabled ? "Apagar cámara" : "Encender cámara"}
+        aria-label={videoEnabled ? t("videoCall.turnOffCamera") : t("videoCall.turnOnCamera")}
       >
         {videoEnabled ? <Video className="h-5 w-5" /> : <VideoOff className="h-5 w-5" />}
       </Button>
-      <Button
-        variant="destructive"
-        onClick={onLeave}
-        disabled={leaving}
-        className="gap-2"
-      >
+      <Button variant="destructive" onClick={onLeave} disabled={leaving} className="gap-2">
         <PhoneOff className="h-5 w-5" />
-        {leaving ? "Procesando..." : "Terminar"}
+        {leaving ? t("videoCall.processing") : t("videoCall.leave")}
       </Button>
     </div>
   )

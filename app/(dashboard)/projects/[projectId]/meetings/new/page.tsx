@@ -1,5 +1,6 @@
 "use client"
 
+import { useMemo } from "react"
 import { useParams, useRouter } from "next/navigation"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
@@ -17,23 +18,34 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form"
+import { useTranslation } from "@/components/locale-provider"
 import { useProjectMembers } from "@/features/projects/projects.hooks"
 import { useCreateMeeting } from "@/features/meetings/meetings.hooks"
 
-const schema = z.object({
-  title: z.string().min(1, "El título es obligatorio"),
-  description: z.string().optional(),
-  scheduledAt: z.string().optional(),
-  participantIds: z.array(z.string()).default([]),
-})
-
-type FormValues = z.infer<typeof schema>
+type FormValues = {
+  title: string
+  description?: string
+  scheduledAt?: string
+  participantIds: string[]
+}
 
 export default function CreateMeetingPage() {
   const { projectId } = useParams<{ projectId: string }>()
   const router = useRouter()
+  const { t } = useTranslation()
   const { data: members } = useProjectMembers(projectId)
   const createMutation = useCreateMeeting(projectId)
+
+  const schema = useMemo(
+    () =>
+      z.object({
+        title: z.string().min(1, t("meetings.titleRequired")),
+        description: z.string().optional(),
+        scheduledAt: z.string().optional(),
+        participantIds: z.array(z.string()).default([]),
+      }),
+    [t]
+  )
 
   const form = useForm<FormValues>({
     resolver: zodResolver(schema),
@@ -50,9 +62,7 @@ export default function CreateMeetingPage() {
       {
         title: data.title.trim(),
         description: data.description?.trim() || undefined,
-        scheduledAt: data.scheduledAt
-          ? new Date(data.scheduledAt).toISOString()
-          : undefined,
+        scheduledAt: data.scheduledAt ? new Date(data.scheduledAt).toISOString() : undefined,
         participantIds: data.participantIds,
       },
       {
@@ -64,22 +74,20 @@ export default function CreateMeetingPage() {
   }
 
   return (
-    <div className="p-6">
-      <div className="mb-6 flex items-center gap-3">
+    <div className="p-4 sm:p-6">
+      <div className="mb-5 flex items-center gap-3 sm:mb-6">
         <Button
           variant="ghost"
           size="icon"
           onClick={() => router.push(`/projects/${projectId}/meetings`)}
-          aria-label="Volver"
+          aria-label={t("common.back")}
         >
           <ArrowLeft className="h-4 w-4" />
         </Button>
-        <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
-          Nueva reunión
-        </h1>
+        <h1 className="text-xl font-bold text-gray-900 dark:text-white sm:text-2xl">{t("meetings.createTitle")}</h1>
       </div>
 
-      <div className="max-w-2xl rounded-lg border border-gray-200 bg-white p-6 dark:border-gray-700 dark:bg-gray-800">
+      <div className="max-w-2xl rounded-lg border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-800 sm:p-6">
         {createMutation.error && (
           <p
             role="alert"
@@ -87,7 +95,7 @@ export default function CreateMeetingPage() {
           >
             {createMutation.error instanceof Error
               ? createMutation.error.message
-              : "Algo salió mal"}
+              : t("meetings.somethingWrong")}
           </p>
         )}
         <Form {...form}>
@@ -97,9 +105,9 @@ export default function CreateMeetingPage() {
               name="title"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Título</FormLabel>
+                  <FormLabel>{t("meetings.meetingTitle")}</FormLabel>
                   <FormControl>
-                    <Input placeholder="Ej. Sprint Review" {...field} />
+                    <Input placeholder="Sprint Review" {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -110,9 +118,9 @@ export default function CreateMeetingPage() {
               name="description"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Descripción (opcional)</FormLabel>
+                  <FormLabel>{t("meetings.descriptionOptional")}</FormLabel>
                   <FormControl>
-                    <Textarea rows={3} placeholder="Objetivo de la reunión" {...field} />
+                    <Textarea rows={3} placeholder={t("meetings.descriptionPlaceholder")} {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -123,7 +131,7 @@ export default function CreateMeetingPage() {
               name="scheduledAt"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Programada para (opcional)</FormLabel>
+                  <FormLabel>{t("meetings.scheduledOptional")}</FormLabel>
                   <FormControl>
                     <Input type="datetime-local" {...field} />
                   </FormControl>
@@ -137,12 +145,10 @@ export default function CreateMeetingPage() {
               name="participantIds"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Invitar miembros</FormLabel>
+                  <FormLabel>{t("meetings.inviteMembers")}</FormLabel>
                   <div className="space-y-2 rounded-md border border-gray-200 p-3 dark:border-gray-700">
                     {(members ?? []).length === 0 && (
-                      <p className="text-sm text-gray-500">
-                        Este proyecto aún no tiene miembros.
-                      </p>
+                      <p className="text-sm text-gray-500">{t("meetings.noMembersInProject")}</p>
                     )}
                     {members?.map((member) => {
                       const checked = field.value.includes(member.userId)
@@ -153,17 +159,15 @@ export default function CreateMeetingPage() {
                         >
                           <Checkbox
                             checked={checked}
-                            onCheckedChange={(c) => {
-                              const next = c
+                            onCheckedChange={(value) => {
+                              const next = value
                                 ? [...field.value, member.userId]
                                 : field.value.filter((id) => id !== member.userId)
                               field.onChange(next)
                             }}
                           />
                           <div className="text-sm">
-                            <p className="font-medium text-gray-900 dark:text-white">
-                              {member.user.name}
-                            </p>
+                            <p className="font-medium text-gray-900 dark:text-white">{member.user.name}</p>
                             <p className="text-xs text-gray-500">{member.user.email}</p>
                           </div>
                         </label>
@@ -181,10 +185,10 @@ export default function CreateMeetingPage() {
                 variant="outline"
                 onClick={() => router.push(`/projects/${projectId}/meetings`)}
               >
-                Cancelar
+                {t("common.cancel")}
               </Button>
               <Button type="submit" disabled={createMutation.isPending}>
-                {createMutation.isPending ? "Creando..." : "Crear reunión"}
+                {createMutation.isPending ? t("meetings.creating") : t("meetings.createMeeting")}
               </Button>
             </div>
           </form>

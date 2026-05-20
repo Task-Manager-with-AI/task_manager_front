@@ -1,5 +1,5 @@
 import { apiClient } from "@/lib/api-client"
-import type { Task, CreateTaskDto, UpdateTaskDto, TaskStatus } from "./tasks.types"
+import type { Task, CreateTaskDto, UpdateTaskDto } from "./tasks.types"
 
 export const tasksApi = {
   listByProject: (projectId: string) =>
@@ -9,7 +9,7 @@ export const tasksApi = {
     apiClient.post<Task>(`/projects/${projectId}/tasks`, dto),
   update: (id: string, dto: UpdateTaskDto) =>
     apiClient.patch<Task>(`/tasks/${id}`, dto),
-  updateStatus: (id: string, status: TaskStatus) =>
-    apiClient.patch<Task>(`/tasks/${id}/status`, { status }),
+  updateColumn: (id: string, columnId: string) =>
+    apiClient.patch<Task>(`/tasks/${id}/column`, { columnId }),
   delete: (id: string) => apiClient.delete<null>(`/tasks/${id}`),
 }

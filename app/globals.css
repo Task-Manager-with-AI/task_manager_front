@@ -24,6 +24,24 @@
     --input: 214.3 31.8% 91.4%;
     --ring: 221.2 83.2% 53.3%;
     --radius: 0.5rem;
+
+    /* ── Fluid typography scale (clamp: mobile → desktop) ── */
+    --text-xs:   clamp(0.70rem,  0.65rem + 0.25vw, 0.80rem);
+    --text-sm:   clamp(0.80rem,  0.75rem + 0.35vw, 0.95rem);
+    --text-base: clamp(0.90rem,  0.85rem + 0.45vw, 1.05rem);
+    --text-lg:   clamp(1.05rem,  0.95rem + 0.55vw, 1.20rem);
+    --text-xl:   clamp(1.15rem,  1.00rem + 0.75vw, 1.40rem);
+    --text-2xl:  clamp(1.30rem,  1.10rem + 1.00vw, 1.75rem);
+    --text-3xl:  clamp(1.55rem,  1.25rem + 1.50vw, 2.20rem);
+
+    /* ── Fluid spacing scale ── */
+    --space-page-x: clamp(1rem,   2vw,   1.5rem);
+    --space-page-y: clamp(1rem,   2vw,   1.5rem);
+    --space-xs:     clamp(0.25rem, 0.5vw, 0.50rem);
+    --space-sm:     clamp(0.50rem, 1vw,   0.75rem);
+    --space-md:     clamp(0.75rem, 1.5vw, 1.25rem);
+    --space-lg:     clamp(1.25rem, 2.5vw, 2.00rem);
+    --space-xl:     clamp(2.00rem, 4vw,   3.50rem);
   }
 
   .dark {
@@ -53,7 +71,41 @@
   * {
     @apply border-border;
   }
+
+  html {
+    /* Prevent horizontal scroll at all sizes */
+    overflow-x: hidden;
+  }
+
   body {
     @apply bg-background text-foreground;
+    /* Fluid base size applied to body for all rem-based sizing */
+    font-size: var(--text-base);
+    line-height: 1.6;
+  }
+
+  h1 { font-size: var(--text-2xl); }
+  h2 { font-size: var(--text-xl); }
+  h3 { font-size: var(--text-lg); }
+
+  /* ── Fluid page padding utility ── */
+  .page-container {
+    padding-inline: var(--space-page-x);
+    padding-block: var(--space-page-y);
+  }
+
+  /* Ensure images and videos never overflow their containers */
+  img, video, iframe {
+    max-width: 100%;
+  }
+
+}
+
+@layer utilities {
+  /* Responsive table wrapper */
+  .table-responsive {
+    width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
   }
 }

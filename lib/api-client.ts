@@ -38,6 +38,9 @@ export const apiClient = {
   patch<T>(path: string, data?: unknown) {
     return request<T>(path, { method: "PATCH", body: JSON.stringify(data) })
   },
+  put<T>(path: string, data?: unknown) {
+    return request<T>(path, { method: "PUT", body: JSON.stringify(data) })
+  },
   delete<T>(path: string) {
     return request<T>(path, { method: "DELETE" })
   },

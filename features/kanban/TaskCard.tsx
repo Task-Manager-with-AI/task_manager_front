@@ -3,11 +3,20 @@
 import { useDraggable } from "@dnd-kit/core"
 import { CSS } from "@dnd-kit/utilities"
 import { format } from "date-fns"
-import { Calendar, GripVertical } from "lucide-react"
+import { ArrowRightLeft, Calendar, GripVertical } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
+import { Button } from "@/components/ui/button"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 import { cn } from "@/lib/utils"
+import type { KanbanColumn } from "./kanban.types"
 import type { Task } from "@/features/tasks/tasks.types"
+import { useTranslation } from "@/components/locale-provider"
 
 const PRIORITY_STYLES = {
   LOW: "bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300",
@@ -17,10 +26,20 @@ const PRIORITY_STYLES = {
 
 interface TaskCardProps {
   task: Task
+  columns?: KanbanColumn[]
   isDragOverlay?: boolean
+  onMoveTo?: (taskId: string, columnId: string) => void
+  onClick?: () => void
 }
 
-export function TaskCard({ task, isDragOverlay = false }: TaskCardProps) {
+export function TaskCard({
+  task,
+  columns = [],
+  isDragOverlay = false,
+  onMoveTo,
+  onClick,
+}: TaskCardProps) {
+  const { t } = useTranslation()
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
     id: task.id,
     data: { task },
@@ -30,43 +49,64 @@ export function TaskCard({ task, isDragOverlay = false }: TaskCardProps) {
     transform: CSS.Translate.toString(transform),
   }
 
+  const moveTargets = columns.filter((col) => col.id !== task.columnId)
+
+  const priorityLabel = {
+    LOW: t("tasks.priorityLow"),
+    MEDIUM: t("tasks.priorityMedium"),
+    HIGH: t("tasks.priorityHigh"),
+  }[task.priority]
+
   return (
     <div
       ref={setNodeRef}
       style={style}
       role="listitem"
       className={cn(
-        "bg-white dark:bg-gray-700 rounded-lg p-3 shadow-sm border border-gray-200 dark:border-gray-600 select-none",
+        "rounded-lg border border-gray-200 bg-white p-3 shadow-sm select-none dark:border-gray-600 dark:bg-gray-700",
         isDragging && "opacity-40",
-        isDragOverlay && "shadow-lg rotate-2 cursor-grabbing"
+        isDragOverlay && "shadow-lg rotate-2 cursor-grabbing",
+        onClick && !isDragOverlay && "cursor-pointer hover:border-blue-300 dark:hover:border-blue-600"
       )}
+      onClick={!isDragOverlay ? onClick : undefined}
+      onKeyDown={
+        onClick && !isDragOverlay
+          ? (e) => {
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault()
+                onClick()
+              }
+            }
+          : undefined
+      }
+      tabIndex={onClick && !isDragOverlay ? 0 : undefined}
     >
       <div className="flex items-start gap-2">
         <button
+          type="button"
           {...listeners}
           {...attributes}
-          aria-label={`Drag task ${task.title}`}
-          className="mt-0.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 cursor-grab active:cursor-grabbing"
+          aria-label={t("kanban.dragTaskAria").replace("{title}", task.title)}
+          className="mt-0.5 rounded-sm text-gray-500 hover:text-gray-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 dark:text-gray-300 dark:hover:text-gray-100 cursor-grab active:cursor-grabbing"
+          onClick={(e) => e.stopPropagation()}
         >
-          <GripVertical className="w-4 h-4" />
+          <GripVertical className="h-4 w-4" />
         </button>
-        <div className="flex-1 min-w-0">
-          <p className="text-sm font-medium text-gray-900 dark:text-white line-clamp-2">
-            {task.title}
-          </p>
-          <div className="flex items-center gap-2 mt-2 flex-wrap">
-            <Badge className={cn("text-xs px-1.5 py-0", PRIORITY_STYLES[task.priority])}>
-              {task.priority}
+        <div className="min-w-0 flex-1">
+          <p className="line-clamp-2 text-sm font-medium text-gray-900 dark:text-white">{task.title}</p>
+          <div className="mt-2 flex flex-wrap items-center gap-2">
+            <Badge className={cn("px-1.5 py-0 text-xs", PRIORITY_STYLES[task.priority])}>
+              {priorityLabel}
             </Badge>
             {task.dueDate && (
               <span className="flex items-center gap-1 text-xs text-gray-500 dark:text-gray-400">
-                <Calendar className="w-3 h-3" />
+                <Calendar className="h-3 w-3" />
                 {format(new Date(task.dueDate), "MMM d")}
               </span>
             )}
             {task.responsible && (
-              <Avatar className="w-5 h-5 ml-auto">
-                <AvatarFallback className="text-[10px] bg-blue-100 text-blue-700">
+              <Avatar className="ml-auto h-5 w-5">
+                <AvatarFallback className="bg-blue-100 text-[10px] text-blue-700 dark:bg-blue-900 dark:text-blue-300">
                   {task.responsible.name
                     .split(" ")
                     .map((n) => n[0])
@@ -77,6 +117,28 @@ export function TaskCard({ task, isDragOverlay = false }: TaskCardProps) {
             )}
           </div>
         </div>
+        {!isDragOverlay && onMoveTo && moveTargets.length > 0 && (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-7 w-7 shrink-0"
+                aria-label={t("kanban.moveTaskAria").replace("{title}", task.title)}
+                onClick={(e) => e.stopPropagation()}
+              >
+                <ArrowRightLeft className="h-3.5 w-3.5" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              {moveTargets.map((col) => (
+                <DropdownMenuItem key={col.id} onClick={() => onMoveTo(task.id, col.id)}>
+                  {t("kanban.moveTo").replace("{column}", col.title)}
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        )}
       </div>
     </div>
   )

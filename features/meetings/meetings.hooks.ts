@@ -78,3 +78,28 @@ export function useMinuteByMeeting(meetingId: string) {
     retry: 1,
   })
 }
+
+export function useAllMeetings() {
+  return useQuery({
+    queryKey: ["meetings", "all"],
+    queryFn: () => meetingsApi.listAll(),
+  })
+}
+
+export function useDailyAnalysis(meetingId: string, enabled = true) {
+  return useQuery({
+    queryKey: ["daily-analysis", meetingId],
+    queryFn: () => meetingsApi.getDailyAnalysis(meetingId),
+    enabled: Boolean(meetingId) && enabled,
+    retry: 1,
+  })
+}
+
+export function useKanbanUpdates(meetingId: string, enabled = true) {
+  return useQuery({
+    queryKey: ["kanban-updates", meetingId],
+    queryFn: () => meetingsApi.getKanbanUpdates(meetingId),
+    enabled: Boolean(meetingId) && enabled,
+    retry: 1,
+  })
+}

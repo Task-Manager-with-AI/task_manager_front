@@ -1,12 +1,13 @@
 "use client"
 
-import { useState } from "react"
+import { useMemo, useState } from "react"
 import { useRouter } from "next/navigation"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { z } from "zod"
 import { Plus, FolderOpen, Trash2 } from "lucide-react"
 import { useProjects, useCreateProject, useDeleteProject } from "@/features/projects/projects.hooks"
+import { useTranslation } from "@/components/locale-provider"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import {
@@ -19,7 +20,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
@@ -27,11 +28,10 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { Badge } from "@/components/ui/badge"
 import { format } from "date-fns"
 
-const createSchema = z.object({
-  name: z.string().min(1, "Name is required"),
-  description: z.string().optional(),
-})
-type CreateForm = z.infer<typeof createSchema>
+type CreateForm = {
+  name: string
+  description?: string
+}
 
 const PROJECT_COLORS = [
   "bg-blue-200 dark:bg-blue-800",
@@ -43,6 +43,7 @@ const PROJECT_COLORS = [
 ]
 
 export default function ProjectsPage() {
+  const { t } = useTranslation()
   const router = useRouter()
   const { data: projects, isLoading } = useProjects()
   const { mutate: createProject, isPending } = useCreateProject()
@@ -50,6 +51,15 @@ export default function ProjectsPage() {
   const [open, setOpen] = useState(false)
   const [projectToDelete, setProjectToDelete] = useState<string | null>(null)
   const selectedProject = projects?.find((project) => project.id === projectToDelete)
+
+  const createSchema = useMemo(
+    () =>
+      z.object({
+        name: z.string().min(1, t("projects.nameRequired")),
+        description: z.string().optional(),
+      }),
+    [t]
+  )
 
   const form = useForm<CreateForm>({
     resolver: zodResolver(createSchema),
@@ -63,25 +73,30 @@ export default function ProjectsPage() {
     )
   }
 
+  const projectStatusLabel = (status: string) => {
+    if (status === "ACTIVE") return t("projects.statusActive")
+    if (status === "ARCHIVED") return t("projects.statusArchived")
+    return status
+  }
+
   return (
-    <div className="p-6">
-      <div className="flex items-center justify-between mb-6">
+    <div className="p-4 sm:p-6">
+      <div className="mb-5 flex flex-wrap items-center justify-between gap-3 sm:mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Projects</h1>
-          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-            Manage and track all your projects
-          </p>
+          <h1 className="text-xl font-bold text-gray-900 dark:text-white sm:text-2xl">{t("projects.title")}</h1>
+          <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">{t("projects.subtitle")}</p>
         </div>
         <Dialog open={open} onOpenChange={setOpen}>
           <DialogTrigger asChild>
             <Button>
-              <Plus className="w-4 h-4 mr-2" />
-              New Project
+              <Plus className="mr-2 h-4 w-4" />
+              {t("common.newProject")}
             </Button>
           </DialogTrigger>
           <DialogContent className="bg-white dark:bg-gray-800">
             <DialogHeader>
-              <DialogTitle className="text-gray-900 dark:text-white">Create Project</DialogTitle>
+              <DialogTitle className="text-gray-900 dark:text-white">{t("projects.createProject")}</DialogTitle>
+              <DialogDescription>{t("projects.createDescription")}</DialogDescription>
             </DialogHeader>
             <Form {...form}>
               <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
@@ -90,9 +105,9 @@ export default function ProjectsPage() {
                   name="name"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Project name</FormLabel>
+                      <FormLabel>{t("common.projectName")}</FormLabel>
                       <FormControl>
-                        <Input placeholder="My awesome project" {...field} />
+                        <Input placeholder={t("projects.namePlaceholder")} {...field} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -103,10 +118,10 @@ export default function ProjectsPage() {
                   name="description"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Description (optional)</FormLabel>
+                      <FormLabel>{t("projects.descriptionOptional")}</FormLabel>
                       <FormControl>
                         <Textarea
-                          placeholder="What is this project about?"
+                          placeholder={t("projects.descriptionPlaceholder")}
                           rows={3}
                           {...field}
                         />
@@ -117,10 +132,10 @@ export default function ProjectsPage() {
                 />
                 <div className="flex justify-end gap-2">
                   <Button type="button" variant="outline" onClick={() => setOpen(false)}>
-                    Cancel
+                    {t("common.cancel")}
                   </Button>
                   <Button type="submit" disabled={isPending}>
-                    {isPending ? "Creating..." : "Create project"}
+                    {isPending ? t("projects.creating") : t("projects.createProject")}
                   </Button>
                 </div>
               </form>
@@ -130,7 +145,7 @@ export default function ProjectsPage() {
       </div>
 
       {isLoading && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {[1, 2, 3].map((i) => (
             <Skeleton key={i} className="h-40 rounded-xl" />
           ))}
@@ -138,26 +153,26 @@ export default function ProjectsPage() {
       )}
 
       {!isLoading && projects?.length === 0 && (
-        <div className="text-center py-20 text-gray-400 dark:text-gray-500">
-          <FolderOpen className="w-12 h-12 mx-auto mb-3 opacity-40" />
-          <p className="text-lg font-medium">No projects yet</p>
-          <p className="text-sm mt-1">Create your first project to get started</p>
+        <div className="py-16 text-center text-gray-400 dark:text-gray-500 sm:py-20">
+          <FolderOpen className="mx-auto mb-3 h-12 w-12 opacity-40" />
+          <p className="text-lg font-medium">{t("projects.noProjects")}</p>
+          <p className="mt-1 text-sm">{t("projects.noProjectsHint")}</p>
         </div>
       )}
 
       {!isLoading && projects && projects.length > 0 && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {projects.map((project, index) => (
             <Card
               key={project.id}
-              className="hover:shadow-md transition-shadow border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800"
+              className="border-gray-200 bg-white transition-shadow hover:shadow-md dark:border-gray-700 dark:bg-gray-800"
             >
               <CardHeader className="pb-2">
                 <div className="flex items-start justify-between">
                   <div
-                    className={`w-8 h-8 rounded-lg ${PROJECT_COLORS[index % PROJECT_COLORS.length]} flex items-center justify-center`}
+                    className={`flex h-8 w-8 items-center justify-center rounded-lg ${PROJECT_COLORS[index % PROJECT_COLORS.length]}`}
                   >
-                    <FolderOpen className="w-4 h-4 text-gray-700 dark:text-gray-200" />
+                    <FolderOpen className="h-4 w-4 text-gray-700 dark:text-gray-200" />
                   </div>
                   <Badge
                     variant="secondary"
@@ -167,10 +182,10 @@ export default function ProjectsPage() {
                         : "bg-gray-100 text-gray-600"
                     }
                   >
-                    {project.status}
+                    {projectStatusLabel(project.status)}
                   </Badge>
                 </div>
-                <CardTitle className="text-base mt-2 text-gray-900 dark:text-white">
+                <CardTitle className="mt-2 text-base text-gray-900 dark:text-white">
                   {project.name}
                 </CardTitle>
                 {project.description && (
@@ -181,7 +196,7 @@ export default function ProjectsPage() {
               </CardHeader>
               <CardContent>
                 <p className="text-xs text-gray-400 dark:text-gray-500">
-                  Created {format(new Date(project.createdAt), "MMM d, yyyy")}
+                  {t("projects.created")} {format(new Date(project.createdAt), "MMM d, yyyy")}
                 </p>
               </CardContent>
               <CardFooter className="justify-between gap-2">
@@ -190,13 +205,13 @@ export default function ProjectsPage() {
                   size="sm"
                   onClick={() => router.push(`/projects/${project.id}`)}
                 >
-                  Open
+                  {t("projects.open")}
                 </Button>
                 <Button
                   variant="ghost"
                   size="icon"
                   className="text-gray-400 hover:text-red-500"
-                  aria-label={`Delete project ${project.name}`}
+                  aria-label={t("projects.deleteProjectAria").replace("{name}", project.name)}
                   onClick={() => setProjectToDelete(project.id)}
                 >
                   <Trash2 className="h-4 w-4" />
@@ -210,15 +225,15 @@ export default function ProjectsPage() {
       <AlertDialog open={Boolean(projectToDelete)} onOpenChange={(next) => !next && setProjectToDelete(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete project?</AlertDialogTitle>
+            <AlertDialogTitle>{t("projects.deleteTitle")}</AlertDialogTitle>
             <AlertDialogDescription>
               {selectedProject
-                ? `This will remove "${selectedProject.name}" from active project lists.`
-                : "This will remove the selected project from active project lists."}
+                ? t("projects.deleteConfirmNamed").replace("{name}", selectedProject.name)
+                : t("projects.deleteConfirmGeneric")}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogCancel>{t("common.cancel")}</AlertDialogCancel>
             <AlertDialogAction
               className="bg-red-600 text-white hover:bg-red-700"
               disabled={isDeleting}
@@ -227,7 +242,7 @@ export default function ProjectsPage() {
                 deleteProject(projectToDelete, { onSuccess: () => setProjectToDelete(null) })
               }}
             >
-              {isDeleting ? "Deleting..." : "Delete project"}
+              {isDeleting ? t("projects.deleting") : t("projects.deleteProject")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

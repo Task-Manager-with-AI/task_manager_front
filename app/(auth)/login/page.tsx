@@ -1,26 +1,36 @@
 "use client"
 
 import Link from "next/link"
+import { useMemo } from "react"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { z } from "zod"
 import { useLogin } from "@/features/auth/auth.hooks"
 import { ApiError } from "@/lib/api-client"
+import { useTranslation } from "@/components/locale-provider"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"
 import { Input } from "@/components/ui/input"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 
-const loginSchema = z.object({
-  email: z.string().email("Invalid email"),
-  password: z.string().min(1, "Password is required"),
-})
-
-type LoginForm = z.infer<typeof loginSchema>
+type LoginForm = {
+  email: string
+  password: string
+}
 
 export default function LoginPage() {
+  const { t } = useTranslation()
   const { mutate: login, isPending, error } = useLogin()
+
+  const loginSchema = useMemo(
+    () =>
+      z.object({
+        email: z.string().email(t("auth.invalidEmail")),
+        password: z.string().min(1, t("auth.passwordRequired")),
+      }),
+    [t]
+  )
 
   const form = useForm<LoginForm>({
     resolver: zodResolver(loginSchema),
@@ -32,8 +42,8 @@ export default function LoginPage() {
   return (
     <Card className="w-full max-w-sm">
       <CardHeader className="text-center">
-        <CardTitle className="text-2xl">Sign in</CardTitle>
-        <CardDescription>Enter your credentials to access your account</CardDescription>
+        <CardTitle className="text-2xl">{t("auth.signIn")}</CardTitle>
+        <CardDescription>{t("auth.signInDescription")}</CardDescription>
       </CardHeader>
       <CardContent>
         {apiError && (
@@ -49,7 +59,7 @@ export default function LoginPage() {
               name="email"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Email</FormLabel>
+                  <FormLabel>{t("auth.email")}</FormLabel>
                   <FormControl>
                     <Input type="email" placeholder="you@example.com" {...field} />
                   </FormControl>
@@ -62,7 +72,7 @@ export default function LoginPage() {
               name="password"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Password</FormLabel>
+                  <FormLabel>{t("auth.password")}</FormLabel>
                   <FormControl>
                     <Input type="password" placeholder="••••••••" {...field} />
                   </FormControl>
@@ -71,15 +81,15 @@ export default function LoginPage() {
               )}
             />
             <Button type="submit" className="w-full" disabled={isPending}>
-              {isPending ? "Signing in…" : "Sign in"}
+              {isPending ? t("auth.signingIn") : t("auth.signIn")}
             </Button>
           </form>
         </Form>
 
         <p className="mt-4 text-center text-sm text-muted-foreground">
-          Don&apos;t have an account?{" "}
+          {t("auth.noAccount")}{" "}
           <Link href="/register" className="underline underline-offset-4 hover:text-primary">
-            Register
+            {t("auth.register")}
           </Link>
         </p>
       </CardContent>

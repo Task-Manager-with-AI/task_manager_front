@@ -162,3 +162,10 @@ export const isPersonWorking = (person: Person): boolean => {
 export const getTeamById = (teamId: string) => {
   return teams.find((team) => team.id === teamId)
 }
+
+// Deterministically map any real userId to a mock Person for visual enrichment
+// (imageURL, team, workingHours). Stable per userId — same user always gets the same avatar.
+export function getMockPersonForUser(userId: string): Person {
+  const hash = userId.split("").reduce((acc, ch) => acc + ch.charCodeAt(0), 0)
+  return people[hash % people.length]
+}
