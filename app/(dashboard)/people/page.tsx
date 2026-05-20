@@ -1,247 +1,111 @@
 "use client"
 
-import { useState } from "react"
-import { Button } from "@/components/ui/button"
+import { useMemo, useState } from "react"
+import { Clock, Search, Users } from "lucide-react"
+import { useTranslation } from "@/components/locale-provider"
+import { useUsers } from "@/features/users/users.hooks"
+import { getMockPersonForUser, getTeamById, isPersonWorking } from "@/lib/people"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Card, CardContent } from "@/components/ui/card"
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
-import { people, teams, isPersonWorking, getTeamById, type Person } from "@/lib/people"
-import { Search, Users, Grid3X3, List, Filter, Mail, Clock, Moon, ChevronDown } from "lucide-react"
-
-type ViewMode = "list" | "grid" | "teams"
+import { Skeleton } from "@/components/ui/skeleton"
 
 export default function PeoplePage() {
+  const { t } = useTranslation()
+  const { data: users, isLoading } = useUsers()
   const [searchQuery, setSearchQuery] = useState("")
-  const [viewMode, setViewMode] = useState<ViewMode>("list")
-  const [selectedTeam, setSelectedTeam] = useState<string>("all")
 
-  // Filter people based on search query and selected team
-  const filteredPeople = people.filter((person) => {
-    const matchesSearch =
-      person.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      person.email.toLowerCase().includes(searchQuery.toLowerCase())
-    const matchesTeam = selectedTeam === "all" || person.team === selectedTeam
-    return matchesSearch && matchesTeam
-  })
-
-  // Group people by teams for team view
-  const peopleByTeams = teams.reduce(
-    (acc, team) => {
-      acc[team.id] = filteredPeople.filter((person) => person.team === team.id)
-      return acc
-    },
-    {} as Record<string, Person[]>,
-  )
-
-  const PersonCard = ({ person, compact = false }: { person: Person; compact?: boolean }) => {
-    const team = getTeamById(person.team)
-    const isWorking = isPersonWorking(person)
-
-    return (
-      <Card className="bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 hover:shadow-md transition-shadow">
-        <CardContent className={`${compact ? "p-4" : "p-6"}`}>
-          <div className="flex items-start space-x-4">
-            <div className="relative">
-              <Avatar className={`${compact ? "w-10 h-10" : "w-12 h-12"}`}>
-                <AvatarImage src={person.imageURL || "/placeholder.svg"} />
-                <AvatarFallback className="bg-gray-200 dark:bg-gray-600 text-gray-900 dark:text-white">
-                  {person.name
-                    .split(" ")
-                    .map((n) => n[0])
-                    .join("")}
-                </AvatarFallback>
-              </Avatar>
-              {!isWorking && (
-                <div className="absolute -top-1 -right-1 w-5 h-5 bg-gray-100 dark:bg-gray-700 rounded-full flex items-center justify-center border-2 border-white dark:border-gray-800">
-                  <Moon className="w-3 h-3 text-gray-600 dark:text-gray-400" />
-                </div>
-              )}
-            </div>
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center justify-between">
-                <h3
-                  className={`${compact ? "text-sm" : "text-base"} font-semibold text-gray-900 dark:text-white truncate`}
-                >
-                  {person.name}
-                </h3>
-                {team && <Badge className={`${team.color} text-xs`}>{team.name}</Badge>}
-              </div>
-              <div className="mt-1 space-y-1">
-                <div className="flex items-center text-xs text-gray-500 dark:text-gray-400">
-                  <Mail className="w-3 h-3 mr-1" />
-                  <span className="truncate">{person.email}</span>
-                </div>
-                <div className="flex items-center text-xs text-gray-500 dark:text-gray-400">
-                  <Clock className="w-3 h-3 mr-1" />
-                  <span>
-                    {person.workingHours.start} - {person.workingHours.end} {person.workingHours.timezone}
-                  </span>
-                  {isWorking ? (
-                    <span className="ml-2 text-green-600 dark:text-green-400">• Online</span>
-                  ) : (
-                    <span className="ml-2 text-gray-400 dark:text-gray-500">• Offline</span>
-                  )}
-                </div>
-              </div>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+  const filteredUsers = useMemo(() => {
+    const list = users ?? []
+    const query = searchQuery.trim().toLowerCase()
+    if (!query) return list
+    return list.filter(
+      (user) =>
+        user.name.toLowerCase().includes(query) ||
+        user.email.toLowerCase().includes(query)
     )
-  }
-
-  const ListView = () => (
-    <div className="space-y-4">
-      {filteredPeople.map((person) => (
-        <PersonCard key={person.id} person={person} />
-      ))}
-    </div>
-  )
-
-  const GridView = () => (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-      {filteredPeople.map((person) => (
-        <PersonCard key={person.id} person={person} compact />
-      ))}
-    </div>
-  )
-
-  const TeamsView = () => (
-    <div className="space-y-6">
-      {teams.map((team) => {
-        const teamPeople = peopleByTeams[team.id]
-        if (teamPeople.length === 0) return null
-
-        return (
-          <div key={team.id}>
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center space-x-3">
-                <h3 className="text-lg font-semibold text-gray-900 dark:text-white">{team.name}</h3>
-                <Badge className={team.color}>
-                  {teamPeople.length} member{teamPeople.length !== 1 ? "s" : ""}
-                </Badge>
-              </div>
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {teamPeople.map((person) => (
-                <PersonCard key={person.id} person={person} compact />
-              ))}
-            </div>
-          </div>
-        )
-      })}
-    </div>
-  )
+  }, [users, searchQuery])
 
   return (
-    <div className="p-6">
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">People</h1>
-        <p className="text-gray-600 dark:text-gray-400">Manage your team members and view their availability</p>
-      </div>
-
-      {/* Controls */}
-      <div className="flex flex-col sm:flex-row gap-4 mb-6">
-        <div className="flex-1">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 dark:text-gray-500 w-4 h-4" />
-            <Input
-              placeholder="Search people by name or email..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-10 bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-white"
-            />
-          </div>
+    <div className="p-4 sm:p-6">
+      <div className="mb-5 flex flex-col gap-4 sm:mb-6 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h1 className="text-xl font-bold text-gray-900 dark:text-white sm:text-2xl">{t("people.title")}</h1>
+          <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">{t("people.subtitle")}</p>
         </div>
-
-        <div className="flex items-center space-x-2">
-          {/* Team Filter */}
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button
-                variant="outline"
-                className="border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 bg-transparent"
-              >
-                <Filter className="w-4 h-4 mr-2" />
-                {selectedTeam === "all" ? "All Teams" : getTeamById(selectedTeam)?.name}
-                <ChevronDown className="w-4 h-4 ml-2" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent className="bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700">
-              <DropdownMenuItem
-                onClick={() => setSelectedTeam("all")}
-                className="text-gray-900 dark:text-white hover:bg-gray-100 dark:hover:bg-gray-700"
-              >
-                All Teams
-              </DropdownMenuItem>
-              {teams.map((team) => (
-                <DropdownMenuItem
-                  key={team.id}
-                  onClick={() => setSelectedTeam(team.id)}
-                  className="text-gray-900 dark:text-white hover:bg-gray-100 dark:hover:bg-gray-700"
-                >
-                  {team.name}
-                </DropdownMenuItem>
-              ))}
-            </DropdownMenuContent>
-          </DropdownMenu>
-
-          {/* View Mode Toggle */}
-          <div className="flex items-center border border-gray-300 dark:border-gray-600 rounded-lg p-1 bg-white dark:bg-gray-800">
-            <Button
-              variant={viewMode === "list" ? "default" : "ghost"}
-              size="sm"
-              onClick={() => setViewMode("list")}
-              className="h-8 px-3"
-            >
-              <List className="w-4 h-4" />
-            </Button>
-            <Button
-              variant={viewMode === "grid" ? "default" : "ghost"}
-              size="sm"
-              onClick={() => setViewMode("grid")}
-              className="h-8 px-3"
-            >
-              <Grid3X3 className="w-4 h-4" />
-            </Button>
-            <Button
-              variant={viewMode === "teams" ? "default" : "ghost"}
-              size="sm"
-              onClick={() => setViewMode("teams")}
-              className="h-8 px-3"
-            >
-              <Users className="w-4 h-4" />
-            </Button>
-          </div>
+        <div className="relative w-full max-w-sm">
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+          <Input
+            value={searchQuery}
+            onChange={(event) => setSearchQuery(event.target.value)}
+            placeholder={t("people.searchPlaceholder")}
+            className="pl-10"
+            aria-label={t("common.search")}
+          />
         </div>
       </div>
 
-      {/* Results Count */}
-      <div className="mb-4">
-        <p className="text-sm text-gray-600 dark:text-gray-400">
-          Showing {filteredPeople.length} of {people.length} people
-          {selectedTeam !== "all" && ` in ${getTeamById(selectedTeam)?.name}`}
-        </p>
-      </div>
-
-      {/* Content */}
-      <div className="min-h-[400px]">
-        {filteredPeople.length === 0 ? (
-          <div className="text-center py-12">
-            <Users className="w-12 h-12 mx-auto mb-4 text-gray-400 dark:text-gray-500" />
-            <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">No people found</h3>
-            <p className="text-gray-600 dark:text-gray-400">Try adjusting your search or filter criteria</p>
-          </div>
-        ) : (
-          <>
-            {viewMode === "list" && <ListView />}
-            {viewMode === "grid" && <GridView />}
-            {viewMode === "teams" && <TeamsView />}
-          </>
-        )}
-      </div>
+      {isLoading ? (
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {[1, 2, 3].map((item) => (
+            <Skeleton key={item} className="h-28 w-full" />
+          ))}
+        </div>
+      ) : filteredUsers.length === 0 ? (
+        <div className="rounded-lg border border-dashed border-gray-300 bg-white p-8 text-center dark:border-gray-700 dark:bg-gray-800 sm:p-10">
+          <p className="font-medium text-gray-900 dark:text-white">{t("people.noMembers")}</p>
+          <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">{t("people.noMembersHint")}</p>
+        </div>
+      ) : (
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {filteredUsers.map((user) => {
+            const mock = getMockPersonForUser(user.id)
+            const team = getTeamById(mock.team)
+            const working = isPersonWorking(mock)
+            return (
+              <Card key={user.id} className="border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-800">
+                <CardContent className="flex items-start gap-4 p-5">
+                  <Avatar className="h-14 w-14 shrink-0">
+                    <AvatarImage src={mock.imageURL} alt={user.name} />
+                    <AvatarFallback className="bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300">
+                      {user.name
+                        .split(" ")
+                        .map((part) => part[0])
+                        .join("")
+                        .slice(0, 2)
+                        .toUpperCase()}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate font-semibold text-gray-900 dark:text-white">{user.name}</p>
+                    <p className="truncate text-sm text-gray-500 dark:text-gray-400">{user.email}</p>
+                    <div className="mt-2 flex flex-wrap items-center gap-2">
+                      <Badge
+                        variant="secondary"
+                        className={user.isActive ? "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300" : "bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400"}
+                      >
+                        {user.isActive ? t("people.active") : t("people.inactive")}
+                      </Badge>
+                      {team && (
+                        <Badge variant="secondary" className={team.color}>
+                          <Users className="mr-1 h-3 w-3" />
+                          {team.name}
+                        </Badge>
+                      )}
+                    </div>
+                    <p className="mt-2 flex items-center gap-1 text-xs text-gray-400 dark:text-gray-500">
+                      <Clock className="h-3 w-3 shrink-0" />
+                      {mock.workingHours.start} – {mock.workingHours.end}
+                      <span className={working ? "ml-1 inline-block h-2 w-2 rounded-full bg-green-400" : "ml-1 inline-block h-2 w-2 rounded-full bg-gray-300 dark:bg-gray-600"} />
+                    </p>
+                  </div>
+                </CardContent>
+              </Card>
+            )
+          })}
+        </div>
+      )}
     </div>
   )
 }

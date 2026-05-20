@@ -14,6 +14,14 @@ const nextConfig = {
         source: "/api/v1/:path*",
         destination: `${apiBase}/api/v1/:path*`,
       },
+      {
+        source: "/uploads/:path*",
+        destination: `${apiBase}/uploads/:path*`,
+      },
+      {
+        source: "/socket.io/:path*",
+        destination: `${apiBase}/socket.io/:path*`,
+      },
     ]
   },
 }

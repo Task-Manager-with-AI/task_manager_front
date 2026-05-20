@@ -1,6 +1,7 @@
 "use client"
 
 import type React from "react"
+import { usePathname } from "next/navigation"
 import DashboardLayout from "@/components/dashboard-layout"
 import { useProjects } from "@/features/projects/projects.hooks"
 
@@ -16,7 +17,13 @@ const SIDEBAR_COLORS = [
 ]
 
 export default function ClientLayout({ children }: { children: React.ReactNode }) {
+  const pathname = usePathname()
   const { data: projects } = useProjects()
+
+  const isFullscreenRoute = /\/meetings\/[^/]+\/room$/.test(pathname)
+  if (isFullscreenRoute) {
+    return <>{children}</>
+  }
 
   const sidebarProjects = (projects ?? []).map((p, i) => ({
     id: p.id,

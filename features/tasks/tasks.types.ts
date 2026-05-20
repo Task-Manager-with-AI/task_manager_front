@@ -1,5 +1,11 @@
-export type TaskStatus = "PENDING" | "IN_PROGRESS" | "DONE"
 export type TaskPriority = "LOW" | "MEDIUM" | "HIGH"
+
+export interface TaskColumn {
+  id: string
+  title: string
+  color?: string | null
+  position?: number
+}
 
 export interface Task {
   id: string
@@ -7,7 +13,7 @@ export interface Task {
   description?: string | null
   dueDate?: string | null
   priority: TaskPriority
-  status: TaskStatus
+  columnId: string
   projectId: string
   createdById: string
   responsibleId?: string | null
@@ -16,6 +22,7 @@ export interface Task {
   createdBy?: { id: string; name: string; email: string }
   responsible?: { id: string; name: string; email: string }
   project?: { id: string; name: string }
+  column?: TaskColumn
 }
 
 export interface CreateTaskDto {
@@ -24,6 +31,7 @@ export interface CreateTaskDto {
   dueDate?: string
   priority?: TaskPriority
   responsibleId?: string
+  columnId?: string
 }
 
 export interface UpdateTaskDto {

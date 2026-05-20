@@ -2,7 +2,7 @@
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { tasksApi } from "./tasks.api"
-import type { Task, CreateTaskDto, UpdateTaskDto, TaskStatus } from "./tasks.types"
+import type { Task, CreateTaskDto, UpdateTaskDto } from "./tasks.types"
 
 export function useProjectTasks(projectId: string) {
   return useQuery({
@@ -18,6 +18,7 @@ export function useCreateTask(projectId: string) {
     mutationFn: (dto: CreateTaskDto) => tasksApi.create(projectId, dto),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["tasks", projectId] })
+      queryClient.invalidateQueries({ queryKey: ["kanban-columns", projectId] })
     },
   })
 }
@@ -33,16 +34,16 @@ export function useUpdateTask(projectId: string) {
   })
 }
 
-export function useUpdateTaskStatus(projectId: string) {
+export function useUpdateTaskColumn(projectId: string) {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: ({ taskId, status }: { taskId: string; status: TaskStatus }) =>
-      tasksApi.updateStatus(taskId, status),
-    onMutate: async ({ taskId, status }) => {
+    mutationFn: ({ taskId, columnId }: { taskId: string; columnId: string }) =>
+      tasksApi.updateColumn(taskId, columnId),
+    onMutate: async ({ taskId, columnId }) => {
       await queryClient.cancelQueries({ queryKey: ["tasks", projectId] })
       const previous = queryClient.getQueryData<Task[]>(["tasks", projectId])
       queryClient.setQueryData<Task[]>(["tasks", projectId], (old) =>
-        old?.map((t) => (t.id === taskId ? { ...t, status } : t)) ?? []
+        old?.map((t) => (t.id === taskId ? { ...t, columnId } : t)) ?? []
       )
       return { previous }
     },
@@ -63,6 +64,7 @@ export function useDeleteTask(projectId: string) {
     mutationFn: (id: string) => tasksApi.delete(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["tasks", projectId] })
+      queryClient.invalidateQueries({ queryKey: ["kanban-columns", projectId] })
     },
   })
 }

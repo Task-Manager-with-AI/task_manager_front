@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useMemo, useState } from "react"
 import {
   DndContext,
   DragEndEvent,
@@ -8,48 +8,93 @@ import {
   DragStartEvent,
   KeyboardSensor,
   PointerSensor,
+  useDroppable,
   useSensor,
   useSensors,
 } from "@dnd-kit/core"
-import { useDroppable } from "@dnd-kit/core"
+import { Plus } from "lucide-react"
 import { TaskCard } from "./TaskCard"
-import { KANBAN_COLUMNS } from "./kanban.types"
-import type { Task, TaskStatus } from "@/features/tasks/tasks.types"
+import type { KanbanColumn } from "./kanban.types"
+import { getColumnStyles } from "./kanban.types"
+import type { Task } from "@/features/tasks/tasks.types"
+import { useTranslation } from "@/components/locale-provider"
+import { Button } from "@/components/ui/button"
+import { cn } from "@/lib/utils"
 
-interface KanbanColumnProps {
-  id: TaskStatus
-  title: string
+interface BoardColumnProps {
+  column: KanbanColumn
   tasks: Task[]
+  canAddTask: boolean
+  onColumnChange: (taskId: string, columnId: string) => void
+  onAddTask: (columnId: string) => void
+  onTaskClick: (task: Task) => void
+  allColumns: KanbanColumn[]
 }
 
-function KanbanColumn({ id, title, tasks }: KanbanColumnProps) {
-  const { setNodeRef, isOver } = useDroppable({ id })
+function BoardColumn({
+  column,
+  tasks,
+  canAddTask,
+  onColumnChange,
+  onAddTask,
+  onTaskClick,
+  allColumns,
+}: BoardColumnProps) {
+  const { t } = useTranslation()
+  const { setNodeRef, isOver } = useDroppable({ id: column.id })
+  const styles = getColumnStyles(column.color)
 
   return (
-    <div className="flex flex-col min-w-0">
-      <div className="flex items-center justify-between mb-3">
-        <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-200">{title}</h3>
-        <span className="text-xs bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 rounded-full px-2 py-0.5">
+    <div className="flex w-[min(100%,280px)] shrink-0 flex-col min-h-0">
+      <div
+        className={cn(
+          "mb-3 flex items-center justify-between gap-2 rounded-lg border border-t-4 bg-white/70 px-3 py-2 backdrop-blur-sm dark:bg-slate-900/60 dark:border-slate-700/50",
+          styles.header
+        )}
+      >
+        <h3 className="truncate text-sm font-semibold text-gray-800 dark:text-gray-100">
+          {column.title}
+        </h3>
+        <span className={cn("shrink-0 rounded-full px-2 py-0.5 text-xs font-medium", styles.badge)}>
           {tasks.length}
         </span>
       </div>
       <div
         ref={setNodeRef}
         role="list"
-        aria-label={`${title} tasks`}
-        className={`flex-1 min-h-48 rounded-xl p-2 space-y-2 transition-colors ${
-          isOver
-            ? "bg-blue-50 dark:bg-blue-900/20 ring-2 ring-blue-300 dark:ring-blue-700"
-            : "bg-gray-50 dark:bg-gray-800/50"
-        }`}
+        aria-label={t("kanban.columnTasksAria").replace("{title}", column.title)}
+        className={cn(
+          "flex min-h-52 flex-1 flex-col rounded-xl border border-white/20 p-2 transition-colors dark:border-slate-700/50",
+          isOver ? cn("ring-2", styles.drop) : "bg-gray-50/90 dark:bg-slate-800/60"
+        )}
       >
-        {tasks.map((task) => (
-          <TaskCard key={task.id} task={task} />
-        ))}
-        {tasks.length === 0 && (
-          <p className="text-xs text-center text-gray-400 dark:text-gray-500 pt-6">
-            Drop tasks here
-          </p>
+        <div className="flex-1 space-y-2">
+          {tasks.map((task) => (
+            <TaskCard
+              key={task.id}
+              task={task}
+              columns={allColumns}
+              onMoveTo={onColumnChange}
+              onClick={() => onTaskClick(task)}
+            />
+          ))}
+          {tasks.length === 0 && (
+            <p className="px-2 pt-6 text-center text-xs text-gray-500 dark:text-gray-400">
+              {t("kanban.dropTasksHere")}
+            </p>
+          )}
+        </div>
+        {canAddTask && (
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            className="mt-2 w-full justify-start gap-1 text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-100"
+            onClick={() => onAddTask(column.id)}
+          >
+            <Plus className="h-4 w-4" />
+            {t("kanban.addTask")}
+          </Button>
         )}
       </div>
     </div>
@@ -57,12 +102,26 @@ function KanbanColumn({ id, title, tasks }: KanbanColumnProps) {
 }
 
 interface KanbanBoardProps {
+  columns: KanbanColumn[]
   tasks: Task[]
-  onStatusChange: (taskId: string, status: TaskStatus) => void
+  onColumnChange: (taskId: string, columnId: string) => void
+  onAddTask: (columnId: string) => void
+  onTaskClick: (task: Task) => void
 }
 
-export function KanbanBoard({ tasks, onStatusChange }: KanbanBoardProps) {
+export function KanbanBoard({
+  columns,
+  tasks,
+  onColumnChange,
+  onAddTask,
+  onTaskClick,
+}: KanbanBoardProps) {
   const [activeTask, setActiveTask] = useState<Task | null>(null)
+  const columnIds = new Set(columns.map((c) => c.id))
+  const leftmostColumnId = useMemo(() => {
+    if (columns.length === 0) return null
+    return [...columns].sort((a, b) => a.position - b.position)[0]?.id ?? null
+  }, [columns])
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
@@ -80,30 +139,35 @@ export function KanbanBoard({ tasks, onStatusChange }: KanbanBoardProps) {
     if (!over) return
 
     const taskId = active.id as string
-    const targetStatus = over.id as TaskStatus
-
-    if (!KANBAN_COLUMNS.some((c) => c.id === targetStatus)) return
+    const targetColumnId = over.id as string
+    if (!columnIds.has(targetColumnId)) return
 
     const task = tasks.find((t) => t.id === taskId)
-    if (task && task.status !== targetStatus) {
-      onStatusChange(taskId, targetStatus)
+    if (task && task.columnId !== targetColumnId) {
+      onColumnChange(taskId, targetColumnId)
     }
   }
 
   return (
     <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-        {KANBAN_COLUMNS.map((col) => (
-          <KanbanColumn
-            key={col.id}
-            id={col.id}
-            title={col.title}
-            tasks={tasks.filter((t) => t.status === col.id)}
+      <div className="flex gap-4 overflow-x-auto pb-4">
+        {columns.map((column) => (
+          <BoardColumn
+            key={column.id}
+            column={column}
+            tasks={tasks.filter((task) => task.columnId === column.id)}
+            canAddTask={column.id === leftmostColumnId}
+            onColumnChange={onColumnChange}
+            onAddTask={onAddTask}
+            onTaskClick={onTaskClick}
+            allColumns={columns}
           />
         ))}
       </div>
       <DragOverlay>
-        {activeTask ? <TaskCard task={activeTask} isDragOverlay /> : null}
+        {activeTask ? (
+          <TaskCard task={activeTask} columns={columns} isDragOverlay />
+        ) : null}
       </DragOverlay>
     </DndContext>
   )
