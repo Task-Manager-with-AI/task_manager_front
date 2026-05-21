@@ -427,16 +427,6 @@ export default function DashboardLayout({ children, projects }: DashboardLayoutP
 
             {/* Right actions */}
             <div className="flex shrink-0 items-center gap-1.5 sm:gap-2.5">
-              {/* "New Project" — full label on md+, icon-only on smaller */}
-              <Button
-                className="bg-blue-600 hover:bg-blue-700 dark:bg-blue-700 dark:hover:bg-blue-800"
-                onClick={() => setIsProjectDialogOpen(true)}
-                size="sm"
-              >
-                <Plus className="h-4 w-4 sm:mr-1.5" />
-                <span className="hidden sm:inline">{t("common.newProject")}</span>
-              </Button>
-
               <ThemeToggle />
 
               {/* Notifications */}
