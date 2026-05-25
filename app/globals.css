@@ -108,4 +108,71 @@
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;
   }
+
+  .document-editor .ProseMirror h1 {
+    font-size: 1.875rem;
+    line-height: 2.25rem;
+    font-weight: 700;
+    margin: 1rem 0 0.5rem;
+  }
+
+  .document-editor .ProseMirror h2 {
+    font-size: 1.5rem;
+    line-height: 2rem;
+    font-weight: 700;
+    margin: 0.9rem 0 0.45rem;
+  }
+
+  .document-editor .ProseMirror p {
+    margin: 0.45rem 0;
+  }
+
+  .document-editor .ProseMirror ul,
+  .document-editor .ProseMirror ol {
+    padding-left: 1.5rem;
+    margin: 0.5rem 0;
+  }
+
+  .document-editor .ProseMirror ul {
+    list-style: disc;
+  }
+
+  .document-editor .ProseMirror ol {
+    list-style: decimal;
+  }
+
+  .document-editor .ProseMirror blockquote {
+    border-left: 3px solid hsl(var(--border));
+    color: hsl(var(--muted-foreground));
+    padding-left: 1rem;
+    margin: 0.75rem 0;
+  }
+
+  .collaboration-carets__caret {
+    border-left: 2px solid;
+    border-right: 2px solid;
+    margin-left: -1px;
+    margin-right: -1px;
+    pointer-events: none;
+    position: relative;
+    word-break: normal;
+  }
+
+  .collaboration-carets__label {
+    border-radius: 4px;
+    color: white;
+    font-size: 0.75rem;
+    font-weight: 600;
+    left: -1px;
+    line-height: 1;
+    padding: 0.2rem 0.35rem;
+    position: absolute;
+    top: -1.35rem;
+    user-select: none;
+    white-space: nowrap;
+  }
+
+  .collaboration-carets__selection {
+    opacity: 0.22;
+  }
 }
