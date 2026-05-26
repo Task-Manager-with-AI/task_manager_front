@@ -1,7 +1,7 @@
 "use client"
 
 import type React from "react"
-import { useEffect, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { EditorContent, useEditor } from "@tiptap/react"
 import StarterKit from "@tiptap/starter-kit"
 import Collaboration from "@tiptap/extension-collaboration"
@@ -21,6 +21,7 @@ import {
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { useTranslation } from "@/components/locale-provider"
+import { documentsLogger } from "./documents.logger"
 
 type CollaborativeEditorProps = {
   documentId: string
@@ -39,13 +40,20 @@ export function CollaborativeEditor({ documentId, user }: CollaborativeEditorPro
   const { t } = useTranslation()
   const [status, setStatus] = useState("connecting")
   const [resources, setResources] = useState<CollaborationResources | null>(null)
+  const previousStatusRef = useRef<string | null>(null)
 
   useEffect(() => {
     let isMounted = true
     let currentResources: CollaborationResources | null = null
 
     setStatus("connecting")
+    previousStatusRef.current = "connecting"
     setResources(null)
+    documentsLogger.info({
+      event: "legacyEditor:init",
+      scope: "editor",
+      documentId,
+    })
 
     const timerId = window.setTimeout(() => {
       const ydoc = new Y.Doc()
@@ -56,9 +64,31 @@ export function CollaborativeEditor({ documentId, user }: CollaborativeEditorPro
         token: "",
         onStatus: ({ status: nextStatus }) => {
           if (isMounted) setStatus(nextStatus)
+          if (previousStatusRef.current !== nextStatus) {
+            documentsLogger.info({
+              event: "legacyEditor:status",
+              scope: "editor",
+              documentId,
+              status: nextStatus,
+            })
+            if (nextStatus === "connected") {
+              documentsLogger.info({
+                event: "legacyEditor:ready",
+                scope: "editor",
+                documentId,
+              })
+            }
+            previousStatusRef.current = nextStatus
+          }
         },
         onAuthenticationFailed: () => {
           if (isMounted) setStatus("forbidden")
+          documentsLogger.warn({
+            event: "legacyEditor:authFailed",
+            scope: "editor",
+            documentId,
+            status: "forbidden",
+          })
         },
       })
 
@@ -77,6 +107,11 @@ export function CollaborativeEditor({ documentId, user }: CollaborativeEditorPro
       window.clearTimeout(timerId)
       currentResources?.provider.destroy()
       currentResources?.ydoc.destroy()
+      documentsLogger.info({
+        event: "legacyEditor:destroy",
+        scope: "editor",
+        documentId,
+      })
     }
   }, [documentId])
 

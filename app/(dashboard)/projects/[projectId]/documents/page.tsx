@@ -27,6 +27,7 @@ import {
 } from "@/components/ui/table"
 import { useTranslation } from "@/components/locale-provider"
 import { useProject } from "@/features/projects/projects.hooks"
+import { documentsLogger, toShortErrorMessage } from "@/features/documents/documents.logger"
 import {
   useCreateDocument,
   useDeleteDocument,
@@ -51,20 +52,58 @@ export default function ProjectDocumentsPage() {
     if (!cleanTitle) return
 
     try {
+      documentsLogger.debug({
+        event: "projectDocuments:create:start",
+        scope: "ui",
+        projectId,
+      })
       setActionError(null)
       const document = await createDocument({ title: cleanTitle })
+      documentsLogger.info({
+        event: "projectDocuments:create:success",
+        scope: "ui",
+        projectId,
+        documentId: document.id,
+      })
       setTitle("")
       setIsDialogOpen(false)
       router.push(`/documents/${document.id}`)
     } catch (error) {
+      documentsLogger.error({
+        event: "projectDocuments:create:error",
+        scope: "ui",
+        projectId,
+        message: toShortErrorMessage(error),
+      })
       setActionError(getErrorMessage(error, t("documents.createError")))
     }
   }
 
   const handleDelete = (documentId: string) => {
+    documentsLogger.debug({
+      event: "projectDocuments:delete:start",
+      scope: "ui",
+      projectId,
+      documentId,
+    })
     setActionError(null)
     deleteDocument(documentId, {
+      onSuccess: () => {
+        documentsLogger.info({
+          event: "projectDocuments:delete:success",
+          scope: "ui",
+          projectId,
+          documentId,
+        })
+      },
       onError: (error) => {
+        documentsLogger.error({
+          event: "projectDocuments:delete:error",
+          scope: "ui",
+          projectId,
+          documentId,
+          message: toShortErrorMessage(error),
+        })
         setActionError(getErrorMessage(error, t("documents.deleteError")))
       },
     })
@@ -78,7 +117,14 @@ export default function ProjectDocumentsPage() {
             variant="ghost"
             size="icon"
             aria-label={t("common.backToProject")}
-            onClick={() => router.push(`/projects/${projectId}`)}
+            onClick={() => {
+              documentsLogger.info({
+                event: "projectDocuments:backToProject",
+                scope: "ui",
+                projectId,
+              })
+              router.push(`/projects/${projectId}`)
+            }}
           >
             <ArrowLeft className="h-4 w-4" />
           </Button>
@@ -92,7 +138,18 @@ export default function ProjectDocumentsPage() {
           </div>
         </div>
 
-        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+        <Dialog
+          open={isDialogOpen}
+          onOpenChange={(open) => {
+            documentsLogger.debug({
+              event: "projectDocuments:createDialog:toggle",
+              scope: "ui",
+              projectId,
+              status: open ? "open" : "closed",
+            })
+            setIsDialogOpen(open)
+          }}
+        >
           <DialogTrigger asChild>
             <Button size="sm">
               <Plus className="h-4 w-4 sm:mr-1.5" />
@@ -156,7 +213,15 @@ export default function ProjectDocumentsPage() {
                 <TableRow
                   key={document.id}
                   className="cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800/40"
-                  onClick={() => router.push(`/documents/${document.id}`)}
+                  onClick={() => {
+                    documentsLogger.info({
+                      event: "projectDocuments:openDocument",
+                      scope: "ui",
+                      projectId,
+                      documentId: document.id,
+                    })
+                    router.push(`/documents/${document.id}`)
+                  }}
                 >
                   <TableCell>
                     <div className="flex items-center gap-2 font-medium text-gray-900 dark:text-white">
