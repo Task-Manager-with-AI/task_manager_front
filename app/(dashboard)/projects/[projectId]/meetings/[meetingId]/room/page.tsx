@@ -47,6 +47,7 @@ export default function MeetingRoomPage() {
       meetingTitle={meeting.title}
       projectId={params.projectId}
       localUserName={me.name}
+      isHost={me.id === meeting.createdById}
     />
   )
 }

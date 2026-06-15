@@ -27,7 +27,6 @@ import {
   BarChart3,
   MessageSquare,
   FileText,
-  Receipt,
   Settings,
   HelpCircle,
   User,
@@ -87,12 +86,6 @@ const PROJECT_SUB_ITEMS: SubItem[] = [
     icon: FileText,
     getPath: () => `/documents`,
     isActiveFn: (p) => p.startsWith("/documents"),
-  },
-  {
-    key: "nav.receipts",
-    icon: Receipt,
-    getPath: () => `/receipts`,
-    isActiveFn: (p) => p.startsWith("/receipts"),
   },
 ]
 

@@ -15,8 +15,7 @@
     "projectTasks": "My Tasks",
     "kanban": "Kanban",
     "meetings": "Meetings",
-    "documents": "Documents",
-    "receipts": "Receipts"
+    "documents": "Documents"
   },
   "common": {
     "cancel": "Cancel",
@@ -318,7 +317,9 @@
     "disconnected": "Disconnected",
     "mediaError": "Could not access camera or microphone",
     "recording": "Recording",
+    "recordingMeeting": "Recording meeting",
     "notRecording": "Not recording",
+    "hostRecords": "Host is recording the meeting",
     "participant": "participant",
     "participants": "participants",
     "muteMic": "Mute microphone",
@@ -326,12 +327,15 @@
     "turnOffCamera": "Turn off camera",
     "turnOnCamera": "Turn on camera",
     "leave": "Leave",
+    "endMeeting": "End meeting",
     "processing": "Processing…",
     "processingTitle": "Processing audio and generating minutes…",
     "processingHint": "This may take 30 seconds to a few minutes depending on meeting length. You will be redirected to the minutes page when ready.",
     "backToProject": "Back to project",
     "processingFailed": "Processing failed. You can return to the project and try again later.",
-    "permissionDenied": "Permission denied — allow camera and microphone to join the call."
+    "permissionDenied": "Permission denied — allow camera and microphone to join the call.",
+    "insecureContext": "Camera and microphone only work over HTTPS or localhost. From another device on your network, start the frontend with «npm run dev:network» and open https://[PC-IP]:3000 (accept the self-signed certificate).",
+    "mediaUnavailable": "Your browser does not expose camera or microphone on this page. Use HTTPS or a supported browser."
   },
   "minutes": {
     "pageTitle": "Minutes",
@@ -388,11 +392,77 @@
   },
   "dashboard": {
     "title": "Dashboard",
-    "description": "Project analytics and overview metrics will be available here."
-  },
-  "receipts": {
-    "title": "Receipts",
-    "description": "Expense tracking and financial records will be available here."
+    "subtitle": "Scrum metrics, project health, and upcoming important dates.",
+    "description": "Project analytics and overview metrics will be available here.",
+    "greeting": "Hello, {name}",
+    "guest": "User",
+    "filterProject": "Filter by project",
+    "allProjects": "All my projects",
+    "projectsSection": "Project status",
+    "chartsSection": "Scrum charts",
+    "progress": "Progress",
+    "tasksDone": "tasks completed",
+    "sprintEnds": "Ends",
+    "openProject": "Open project {name}",
+    "noProjects": "You don't have any assigned projects yet.",
+    "loadError": "Could not load the dashboard. Please try again.",
+    "kpis": {
+      "activeProjects": "Active projects",
+      "openTasks": "Open tasks",
+      "overdueTasks": "Overdue tasks",
+      "meetingsThisWeek": "Meetings this week"
+    },
+    "sprintHealth": {
+      "green": "Healthy",
+      "yellow": "Attention",
+      "red": "Critical"
+    },
+    "priority": {
+      "high": "High",
+      "medium": "Medium",
+      "low": "Low"
+    },
+    "unit": {
+      "storyPoints": "Story points",
+      "tasks": "Tasks"
+    },
+    "charts": {
+      "burndown": "Sprint burndown",
+      "burnup": "Sprint burnup",
+      "byColumn": "Tasks by column",
+      "byPriority": "Tasks by priority",
+      "velocity": "Weekly velocity",
+      "burndownDesc": "Remaining work vs ideal line",
+      "burnupDesc": "Scope vs completed work",
+      "byColumnDesc": "Current Kanban distribution",
+      "byPriorityDesc": "Backlog by priority",
+      "velocityDesc": "Tasks completed per week (last 5)",
+      "ideal": "Ideal",
+      "actual": "Actual",
+      "scope": "Scope",
+      "completed": "Completed",
+      "noActiveSprint": "No active sprint for this filter",
+      "noData": "No data to display",
+      "totalTasks": "tasks",
+      "tasks": "Tasks",
+      "burndownAria": "Active sprint burndown chart",
+      "burnupAria": "Active sprint burnup chart",
+      "byColumnAria": "Kanban column pie chart",
+      "byPriorityAria": "Tasks by priority bar chart",
+      "velocityAria": "Weekly velocity bar chart"
+    },
+    "calendar": {
+      "title": "Calendar",
+      "upcoming": "Upcoming events",
+      "eventsOn": "Events on {date}",
+      "noEvents": "No upcoming events in this range",
+      "noEventsDay": "No events on this day"
+    },
+    "eventTypes": {
+      "taskDue": "Due date",
+      "meeting": "Meeting",
+      "sprintEnd": "Sprint end"
+    }
   },
   "help": {
     "title": "Help & Support",

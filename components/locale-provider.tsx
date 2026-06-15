@@ -19,7 +19,11 @@ function readStoredLocale(): Locale {
 }
 
 export function LocaleProvider({ children }: { children: React.ReactNode }) {
-  const [locale, setLocaleState] = React.useState<Locale>(readStoredLocale)
+  const [locale, setLocaleState] = React.useState<Locale>(DEFAULT_LOCALE)
+
+  React.useEffect(() => {
+    setLocaleState(readStoredLocale())
+  }, [])
 
   React.useEffect(() => {
     document.documentElement.lang = locale
