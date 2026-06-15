@@ -13,7 +13,6 @@ interface LocaleContextValue {
 const LocaleContext = React.createContext<LocaleContextValue | null>(null)
 
 function readStoredLocale(): Locale {
-  if (typeof window === "undefined") return DEFAULT_LOCALE
   const stored = localStorage.getItem(LOCALE_STORAGE_KEY)
   return stored === "es" ? "es" : DEFAULT_LOCALE
 }

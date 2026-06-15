@@ -84,8 +84,8 @@ const PROJECT_SUB_ITEMS: SubItem[] = [
   {
     key: "nav.documents",
     icon: FileText,
-    getPath: () => `/documents`,
-    isActiveFn: (p) => p.startsWith("/documents"),
+    getPath: (id) => `/projects/${id}/documents`,
+    isActiveFn: (p, id) => p.startsWith(`/projects/${id}/documents`),
   },
 ]
 
