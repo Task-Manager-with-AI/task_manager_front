@@ -3,6 +3,11 @@
 import { useEffect, useRef, useState } from "react"
 import { io, Socket } from "socket.io-client"
 
+const SOCKET_URL = (process.env.NEXT_PUBLIC_API_URL ?? "").replace(
+  /\/api\/v1\/?$/,
+  ""
+)
+
 export interface RemoteParticipant {
   userId: string
   socketId: string
@@ -36,7 +41,7 @@ export function useSignaling(options: UseSignalingOptions) {
   useEffect(() => {
     if (!options.enabled || !options.meetingId) return
 
-    const socket = io({
+    const socket = io(SOCKET_URL || undefined, {
       path: "/socket.io",
       withCredentials: true,
       transports: ["websocket", "polling"],
