@@ -1,12 +1,20 @@
-﻿"use client"
+"use client"
 
 import { ChangeEvent, FormEvent, useEffect, useMemo, useRef, useState } from "react"
 import dynamic from "next/dynamic"
 import { useParams, useRouter } from "next/navigation"
-import { ArrowLeft, Download, FileCog, FileUp, MessageSquarePlus, Paperclip, Save, Trash2 } from "lucide-react"
+import { ArrowLeft, ChevronLeft, ChevronRight, Download, FileCog, FileUp, MessageSquarePlus, Paperclip, Save, Trash2 } from "lucide-react"
 import { format } from "date-fns"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { ScrollArea } from "@/components/ui/scroll-area"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Textarea } from "@/components/ui/textarea"
 import {
@@ -41,7 +49,12 @@ import {
   useUploadDocumentAsset,
   useVersionDiff,
 } from "@/features/documents/documents.hooks"
-import type { DocumentPermissionRole } from "@/features/documents/documents.types"
+import type { DocumentDiff, DocumentOutlineHeading, DocumentPermissionRole, DocumentVersion } from "@/features/documents/documents.types"
+import { OutlineSidebar } from "@/features/documents/components/OutlineSidebar"
+import { RightPanel } from "@/features/documents/components/RightPanel"
+import { TopNavbar } from "@/features/documents/components/TopNavbar"
+import { ShareDocumentModal } from "@/features/documents/components/ShareDocumentModal"
+import { FloatingChat } from "@/features/documents/components/FloatingChat"
 
 const CollaborativeEditor = dynamic(
   () => import("@/features/documents/collaborative-editor").then((module) => module.CollaborativeEditor),
@@ -98,12 +111,68 @@ export default function DocumentEditorPage() {
   const [commentDrafts, setCommentDrafts] = useState<Record<string, string>>({})
   const [suggestionDraft, setSuggestionDraft] = useState("")
   const [diffSelection, setDiffSelection] = useState<{ fromVersionId?: string; toVersionId?: string }>({})
+  const [selectedVersionId, setSelectedVersionId] = useState<string | undefined>()
+  const [compareAgainstVersionId, setCompareAgainstVersionId] = useState<string | undefined>()
+  const [isShareModalOpen, setIsShareModalOpen] = useState(false)
+  const [isOutlineOpen, setIsOutlineOpen] = useState(true)
+  const [isRightPanelOpen, setIsRightPanelOpen] = useState(true)
+  const [activeUsers, setActiveUsers] = useState<Array<{ id: string; name: string; color: string }>>([])
+  const [headings, setHeadings] = useState<DocumentOutlineHeading[]>([])
+  const proEditorRef = useRef<{ scrollToPos: (pos: number) => void } | null>(null)
+  const editorScrollContainerRef = useRef<HTMLElement | null>(null)
 
   const { data: selectedDiff } = useVersionDiff(
     documentId,
     diffSelection.fromVersionId,
     diffSelection.toVersionId
   )
+
+  const selectedVersion = useMemo(
+    () => (versions ?? []).find((version) => version.id === selectedVersionId),
+    [selectedVersionId, versions]
+  )
+
+  const comparisonCandidates = useMemo(
+    () => (versions ?? []).filter((version) => version.id !== selectedVersionId),
+    [selectedVersionId, versions]
+  )
+
+  const historyComparison = useMemo(() => {
+    if (!selectedVersion || !compareAgainstVersionId || !versions?.length) return null
+
+    const compareAgainst = versions.find((version) => version.id === compareAgainstVersionId)
+    if (!compareAgainst) return null
+
+    return {
+      fromVersionId: compareAgainst.id,
+      toVersionId: selectedVersion.id,
+      baseVersion: compareAgainst,
+      targetVersion: selectedVersion,
+      label: "Comparación personalizada entre versiones",
+    }
+
+    /*
+      return {
+        fromVersionId: selected.id,
+        toVersionId: latest.id,
+        baseVersion: selected,
+        targetVersion: latest,
+        label: "Comparado con la versión más reciente",
+      }
+    }
+
+    const previous = versions[1]
+    if (!previous) return null
+
+    return {
+      fromVersionId: previous.id,
+      toVersionId: selected.id,
+      baseVersion: previous,
+      targetVersion: selected,
+      label: "Cambios respecto a la versión anterior",
+    }
+    */
+  }, [compareAgainstVersionId, selectedVersion, versions])
 
   const accessRole: DocumentPermissionRole = document?.accessRole ?? "EDITOR"
 
@@ -141,6 +210,52 @@ export default function DocumentEditorPage() {
       message: actionError,
     })
   }, [actionError, documentId])
+
+  useEffect(() => {
+    if (!historyComparison) {
+      setDiffSelection({})
+      return
+    }
+
+    setDiffSelection((current) => {
+      if (
+        current.fromVersionId === historyComparison.fromVersionId &&
+        current.toVersionId === historyComparison.toVersionId
+      ) {
+        return current
+      }
+
+      return {
+        fromVersionId: historyComparison.fromVersionId,
+        toVersionId: historyComparison.toVersionId,
+      }
+    })
+  }, [historyComparison])
+
+  useEffect(() => {
+    if (!selectedVersionId || !versions?.length) {
+      setCompareAgainstVersionId(undefined)
+      return
+    }
+
+    const selected = versions.find((version) => version.id === selectedVersionId)
+    if (!selected) {
+      setCompareAgainstVersionId(undefined)
+      return
+    }
+
+    const isStillValid = versions.some(
+      (version) => version.id === compareAgainstVersionId && version.id !== selected.id
+    )
+
+    if (isStillValid) return
+
+    const fallback =
+      (selected.id === versions[0]?.id ? versions[1] : versions[0]) ??
+      versions.find((version) => version.id !== selected.id)
+
+    setCompareAgainstVersionId(fallback?.id)
+  }, [compareAgainstVersionId, selectedVersionId, versions])
 
   const latestVersionId = versions?.[0]?.id
   const latestImportResultVersionId = useMemo(() => {
@@ -626,399 +741,353 @@ export default function DocumentEditorPage() {
 
   if (isLoading || !document || !currentUser) {
     return (
-      <div className="p-4 sm:p-6">
-        <Skeleton className="mb-4 h-14 w-full" />
-        <Skeleton className="h-[70vh] w-full" />
+      <div className="flex h-screen flex-col items-center justify-center bg-gray-50 dark:bg-gray-900">
+        <Skeleton className="h-14 w-full mb-4" />
+        <Skeleton className="h-[70vh] w-full max-w-4xl" />
       </div>
     )
   }
 
+  const isHistoryMode = !!selectedVersionId;
+
   return (
-    <div className="p-4 sm:p-6">
-      <div className="mb-4 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-        <div className="flex min-w-0 items-center gap-3">
-          <Button
-            variant="ghost"
-            size="icon"
-            aria-label={t("documents.backToDocuments")}
-            onClick={() => {
-              documentsLogger.info({
-                event: "documentEditor:backToProjectDocuments",
-                scope: "ui",
-                documentId,
-                projectId: document.projectId,
-              })
-              router.push(`/projects/${document.projectId}/documents`)
-            }}
-          >
-            <ArrowLeft className="h-4 w-4" />
-          </Button>
-          <form onSubmit={handleRename} className="flex min-w-0 flex-1 items-center gap-2">
-            <Input
-              value={title}
-              onChange={(event) => setTitle(event.target.value)}
-              className="min-w-0 max-w-xl text-base font-semibold"
-              aria-label={t("documents.nameLabel")}
-            />
-            <Button
-              type="submit"
-              size="icon"
-              variant="outline"
-              disabled={isSaving || !title.trim() || title.trim() === document.title}
-              aria-label={t("documents.saveTitle")}
-              title={t("documents.saveTitle")}
+    <div className="flex h-screen flex-col overflow-hidden bg-gray-50 dark:bg-gray-900">
+      <TopNavbar
+        projectId={document.projectId}
+        title={title}
+        originalTitle={document.title}
+        setTitle={setTitle}
+        handleRename={handleRename}
+        isSaving={isSaving}
+        handleCreateSnapshot={handleCreateSnapshot}
+        isCreatingVersion={isCreatingVersion}
+        handleExportDocx={handleExportDocx}
+        isCreatingConversionJob={isCreatingConversionJob}
+        latestVersionId={latestVersionId}
+        importFileInputRef={importFileInputRef}
+        handleImportDocx={handleImportDocx}
+        fileInputRef={fileInputRef}
+        handleUpload={handleUpload}
+        isUploading={isUploading}
+        onShareClick={() => setIsShareModalOpen(true)}
+        isHistoryMode={isHistoryMode}
+        activeUsers={activeUsers}
+        onExitHistory={() => {
+          setSelectedVersionId(undefined)
+          setCompareAgainstVersionId(undefined)
+        }}
+      />
+
+      <div className="flex flex-1 overflow-hidden relative">
+        {!isHistoryMode && (
+          <div className="relative flex h-full items-stretch">
+            <div
+              className={`overflow-hidden transition-[width,opacity] duration-300 ease-out ${
+                isOutlineOpen ? "w-64 opacity-100" : "w-0 opacity-0"
+              }`}
             >
-              <Save className="h-4 w-4" />
-            </Button>
-          </form>
-        </div>
-        <div className="flex items-center gap-2">
-          <input ref={fileInputRef} type="file" className="hidden" onChange={handleUpload} />
-          <input
-            ref={importFileInputRef}
-            type="file"
-            className="hidden"
-            accept=".docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-            onChange={handleImportDocx}
-          />
-          <Button type="button" variant="outline" size="sm" disabled={isUploading} onClick={() => fileInputRef.current?.click()}>
-            <Paperclip className="h-4 w-4 sm:mr-1.5" />
-            <span className="hidden sm:inline">{isUploading ? t("documents.uploading") : t("documents.attachFile")}</span>
-          </Button>
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            disabled={isCreatingVersion}
-            onClick={handleCreateSnapshot}
-          >
-            <Save className="h-4 w-4 sm:mr-1.5" />
-            <span className="hidden sm:inline">Snapshot</span>
-          </Button>
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            disabled={isCreatingConversionJob || !latestVersionId}
-            onClick={handleExportDocx}
-          >
-            <FileCog className="h-4 w-4 sm:mr-1.5" />
-            <span className="hidden sm:inline">Export DOCX</span>
-          </Button>
-        </div>
-      </div>
-
-      <div className="mb-3 text-xs font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">
-        Access role: {accessRole}
-      </div>
-
-      {actionError && (
-        <div className="mb-4 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700 dark:border-red-900/60 dark:bg-red-950/40 dark:text-red-300">
-          {actionError}
-        </div>
-      )}
-
-      {useProEditor ? (
-        <ProCollaborativeEditor
-          documentId={documentId}
-          user={editorUser}
-          accessRole={accessRole}
-          onTrackChange={handleTrackedChange}
-        />
-      ) : (
-        <CollaborativeEditor documentId={documentId} user={editorUser} />
-      )}
-
-      <div className="mt-6 grid gap-4 lg:grid-cols-2">
-        <section className="rounded-lg border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-800">
-          <h2 className="mb-2 text-lg font-semibold text-gray-900 dark:text-white">Comentarios</h2>
-          <div className="mb-3 flex gap-2">
-            <Textarea
-              value={newThreadText}
-              onChange={(event) => setNewThreadText(event.target.value)}
-              placeholder="Nuevo comentario..."
-              className="min-h-[72px]"
-            />
-            <Button type="button" size="sm" disabled={isCreatingThread || accessRole === "VIEWER"} onClick={handleCreateThread}>
-              <MessageSquarePlus className="h-4 w-4" />
-            </Button>
-          </div>
-          <div className="max-h-[320px] space-y-3 overflow-y-auto">
-            {(commentThreads ?? []).map((thread) => (
-              <div key={thread.id} className="rounded-md border border-gray-200 p-3 dark:border-gray-700">
-                <div className="mb-2 flex items-center justify-between text-xs text-gray-500">
-                  <span>{thread.isResolved ? "Resuelto" : "Abierto"}</span>
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="ghost"
-                    disabled={isResolvingThread || accessRole === "VIEWER"}
-                    onClick={() => handleToggleThreadResolution(thread.id, !thread.isResolved)}
-                  >
-                    {thread.isResolved ? "Reabrir" : "Resolver"}
-                  </Button>
-                </div>
-                <div className="space-y-2">
-                  {thread.comments.map((comment) => (
-                    <div key={comment.id} className="rounded bg-gray-50 px-2 py-1 text-sm dark:bg-gray-900/50">
-                      <div className="text-xs text-gray-500">{comment.author?.name ?? "Usuario"}</div>
-                      <div>{comment.body}</div>
-                    </div>
-                  ))}
-                </div>
-                <div className="mt-2 flex gap-2">
-                  <Input
-                    value={commentDrafts[thread.id] ?? ""}
-                    onChange={(event) =>
-                      setCommentDrafts((prev) => ({ ...prev, [thread.id]: event.target.value }))
-                    }
-                    placeholder="Responder..."
-                  />
-                  <Button
-                    type="button"
-                    size="sm"
-                    disabled={isAddingComment || thread.isResolved || accessRole === "VIEWER"}
-                    onClick={() => handleAddComment(thread.id)}
-                  >
-                    Enviar
-                  </Button>
-                </div>
-              </div>
-            ))}
-            {(commentThreads ?? []).length === 0 && (
-              <p className="text-sm text-gray-500">No hay hilos de comentarios aún.</p>
-            )}
-          </div>
-        </section>
-
-        <section className="rounded-lg border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-800">
-          <h2 className="mb-2 text-lg font-semibold text-gray-900 dark:text-white">Sugerencias</h2>
-          <div className="mb-3 flex gap-2">
-            <Input
-              value={suggestionDraft}
-              onChange={(event) => setSuggestionDraft(event.target.value)}
-              placeholder="Describe la sugerencia..."
-            />
-            <Button type="button" size="sm" disabled={isCreatingSuggestion || accessRole === "VIEWER"} onClick={handleCreateSuggestion}>
-              Crear
-            </Button>
-          </div>
-          <div className="max-h-[320px] space-y-2 overflow-y-auto">
-            {(suggestions ?? []).map((suggestion) => (
-              <div key={suggestion.id} className="rounded-md border border-gray-200 p-3 text-sm dark:border-gray-700">
-                <div className="mb-1 flex items-center justify-between text-xs text-gray-500">
-                  <span>{suggestion.type}</span>
-                  <span>{suggestion.status}</span>
-                </div>
-                <p className="mb-2">{suggestion.note ?? "Sin detalle"}</p>
-                {suggestion.status === "OPEN" && accessRole === "EDITOR" && (
-                  <div className="flex gap-2">
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="outline"
-                      disabled={isResolvingSuggestion}
-                      onClick={() => handleResolveSuggestionAction(suggestion.id, "ACCEPTED")}
-                    >
-                      Aceptar
-                    </Button>
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="outline"
-                      disabled={isResolvingSuggestion}
-                      onClick={() => handleResolveSuggestionAction(suggestion.id, "REJECTED")}
-                    >
-                      Rechazar
-                    </Button>
-                  </div>
-                )}
-              </div>
-            ))}
-            {(suggestions ?? []).length === 0 && <p className="text-sm text-gray-500">No hay sugerencias aún.</p>}
-          </div>
-        </section>
-      </div>
-
-      <div className="mt-6 grid gap-4 lg:grid-cols-2">
-        <section className="rounded-lg border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-800">
-          <h2 className="mb-2 text-lg font-semibold text-gray-900 dark:text-white">Historial</h2>
-          <div className="mb-3 grid grid-cols-2 gap-2">
-            <select
-              className="rounded-md border border-gray-200 bg-white px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-900"
-              onChange={(event) => {
-                const fromVersionId = event.target.value || undefined
-                documentsLogger.debug({
-                  event: "documentEditor:diff:selectFrom",
-                  scope: "ui",
-                  documentId,
-                  versionId: fromVersionId,
-                })
-                setDiffSelection((prev) => ({ ...prev, fromVersionId }))
-              }}
-              value={diffSelection.fromVersionId ?? ""}
-            >
-              <option value="">Desde versión</option>
-              {(versions ?? []).map((version) => (
-                <option key={version.id} value={version.id}>
-                  {version.source} - {format(new Date(version.createdAt), "dd MMM HH:mm")}
-                </option>
-              ))}
-            </select>
-            <select
-              className="rounded-md border border-gray-200 bg-white px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-900"
-              onChange={(event) => {
-                const toVersionId = event.target.value || undefined
-                documentsLogger.debug({
-                  event: "documentEditor:diff:selectTo",
-                  scope: "ui",
-                  documentId,
-                  versionId: toVersionId,
-                })
-                setDiffSelection((prev) => ({ ...prev, toVersionId }))
-              }}
-              value={diffSelection.toVersionId ?? ""}
-            >
-              <option value="">Hasta versión</option>
-              {(versions ?? []).map((version) => (
-                <option key={version.id} value={version.id}>
-                  {version.source} - {format(new Date(version.createdAt), "dd MMM HH:mm")}
-                </option>
-              ))}
-            </select>
-          </div>
-          {selectedDiff && (
-            <div className="mb-3 rounded-md bg-gray-50 p-2 text-xs text-gray-700 dark:bg-gray-900/50 dark:text-gray-300">
-              Delta caracteres: {selectedDiff.summary.deltaLength}
-              <div className="mt-1 max-h-[140px] overflow-y-auto">
-                {selectedDiff.diff.slice(0, 10).map((item) => (
-                  <div key={`${item.index}-${item.type}`}>[{item.type}] linea {item.index + 1}</div>
-                ))}
-              </div>
+              <OutlineSidebar
+                headings={headings}
+                onHeadingClick={(pos) => proEditorRef.current?.scrollToPos(pos)}
+              />
             </div>
-          )}
-          <div className="max-h-[220px] space-y-2 overflow-y-auto">
-            {(versions ?? []).map((version) => (
-              <div key={version.id} className="flex items-center justify-between rounded-md border border-gray-200 p-2 text-sm dark:border-gray-700">
-                <div>
-                  <div className="font-medium">{version.source}</div>
-                  <div className="text-xs text-gray-500">{format(new Date(version.createdAt), "dd MMM yyyy HH:mm")}</div>
-                </div>
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="outline"
-                  disabled={isRestoringVersion || accessRole !== "EDITOR"}
-                  onClick={() => handleRestoreVersionAction(version.id)}
-                >
-                  Restaurar
-                </Button>
-              </div>
-            ))}
-          </div>
-        </section>
 
-        <section className="rounded-lg border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-800">
-          <h2 className="mb-2 text-lg font-semibold text-gray-900 dark:text-white">Conversión DOCX</h2>
-          <div className="mb-3 flex items-center gap-2">
             <Button
               type="button"
-              size="sm"
               variant="outline"
-              disabled={isCreatingConversionJob || accessRole !== "EDITOR"}
-              onClick={() => importFileInputRef.current?.click()}
+              size="icon"
+              onClick={() => setIsOutlineOpen((current) => !current)}
+              className="absolute right-0 top-1/2 z-20 h-10 w-10 translate-x-1/2 -translate-y-1/2 rounded-full border-gray-300 bg-white shadow-md dark:border-gray-700 dark:bg-gray-900"
+              title={isOutlineOpen ? "Ocultar esquema" : "Mostrar esquema"}
             >
-              <FileUp className="h-4 w-4 sm:mr-1.5" />
-              Usar adjunto para importar
-            </Button>
-            <Button
-              type="button"
-              size="sm"
-              variant="outline"
-              disabled={!latestImportResultVersionId || isRestoringVersion || accessRole !== "EDITOR"}
-              onClick={handleApplyLatestImport}
-            >
-              Aplicar ultima importacion
+              {isOutlineOpen ? (
+                <ChevronLeft className="h-4 w-4" />
+              ) : (
+                <ChevronRight className="h-4 w-4" />
+              )}
             </Button>
           </div>
-          <div className="max-h-[260px] space-y-2 overflow-y-auto">
-            {(conversionJobs ?? []).map((job) => (
-              <div key={job.id} className="rounded-md border border-gray-200 p-2 text-sm dark:border-gray-700">
-                <div className="font-medium">{job.type}</div>
-                <div className="text-xs text-gray-500">Estado: {job.status}</div>
-                {job.errorMessage && <div className="text-xs text-red-600">{job.errorMessage}</div>}
+        )}
+
+        <main
+          ref={editorScrollContainerRef}
+          data-document-scroll-container="true"
+          className={`flex-1 overflow-y-auto ${isHistoryMode ? "bg-[#FFFDE7] dark:bg-[#3E3C2A]" : "bg-gray-100 dark:bg-gray-950"}`}
+        >
+          <div className="mx-auto max-w-4xl p-6 lg:p-12">
+            {actionError && (
+              <div className="mb-4 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700 dark:border-red-900/60 dark:bg-red-950/40 dark:text-red-300">
+                {actionError}
               </div>
-            ))}
-            {(conversionJobs ?? []).length === 0 && (
-              <p className="text-sm text-gray-500">No hay trabajos de conversión aún.</p>
             )}
+            <div className={`overflow-hidden rounded-sm ${isHistoryMode ? "opacity-90 grayscale-[0.2]" : ""}`}>
+              {isHistoryMode ? (
+                <HistoryVersionPreview
+                  selectedVersion={selectedVersion}
+                  compareAgainstVersionId={compareAgainstVersionId}
+                  comparisonCandidates={comparisonCandidates}
+                  comparison={historyComparison}
+                  diff={selectedDiff}
+                  onCompareAgainstChange={setCompareAgainstVersionId}
+                />
+              ) : (
+                <>
+                  {useProEditor ? (
+                    <ProCollaborativeEditor
+                      documentId={documentId}
+                      user={editorUser}
+                      accessRole={accessRole}
+                      onTrackChange={handleTrackedChange}
+                      onActiveUsersChange={setActiveUsers}
+                      onOutlineChange={setHeadings}
+                      editorRef={proEditorRef}
+                      scrollContainerRef={editorScrollContainerRef}
+                    />
+                  ) : (
+                    <CollaborativeEditor 
+                      documentId={documentId} 
+                      user={editorUser} 
+                      onActiveUsersChange={setActiveUsers}
+                    />
+                  )}
+                </>
+              )}
+            </div>
           </div>
-        </section>
-      </div>
+        </main>
 
-      <div className="mt-6">
-        <div className="mb-3">
-          <h2 className="text-lg font-semibold text-gray-900 dark:text-white">{t("documents.assetsTitle")}</h2>
-          <p className="text-sm text-gray-500 dark:text-gray-400">{t("documents.assetsDescription")}</p>
+        <div className="relative flex h-full items-stretch">
+          <Button
+            type="button"
+            variant="outline"
+            size="icon"
+            onClick={() => setIsRightPanelOpen((current) => !current)}
+            className={`absolute left-0 top-1/2 z-20 h-10 w-10 -translate-x-1/2 -translate-y-1/2 rounded-full border-gray-300 bg-white shadow-md transition-transform dark:border-gray-700 dark:bg-gray-900 ${
+              isRightPanelOpen ? "" : "translate-x-0"
+            }`}
+            title={isRightPanelOpen ? "Ocultar panel lateral" : "Mostrar panel lateral"}
+          >
+            {isRightPanelOpen ? (
+              <ChevronRight className="h-4 w-4" />
+            ) : (
+              <ChevronLeft className="h-4 w-4" />
+            )}
+          </Button>
+
+          <div
+            className={`overflow-hidden transition-[width,opacity] duration-300 ease-out ${
+              isRightPanelOpen ? "w-80 opacity-100" : "w-0 opacity-0"
+            }`}
+          >
+            <RightPanel
+              accessRole={accessRole}
+              commentThreads={commentThreads ?? []}
+              isCreatingThread={isCreatingThread}
+              isResolvingThread={isResolvingThread}
+              isAddingComment={isAddingComment}
+              handleCreateThread={handleCreateThread}
+              handleToggleThreadResolution={handleToggleThreadResolution}
+              handleAddComment={handleAddComment}
+              versions={versions ?? []}
+              handleRestoreVersionAction={handleRestoreVersionAction}
+              isRestoringVersion={isRestoringVersion}
+              selectedVersionId={selectedVersionId}
+              onSelectVersion={setSelectedVersionId}
+            />
+          </div>
         </div>
+      </div>
+      <ShareDocumentModal
+        documentId={documentId}
+        isOpen={isShareModalOpen}
+        onOpenChange={setIsShareModalOpen}
+        owner={document?.createdBy}
+      />
+      <FloatingChat currentUser={{ id: currentUser.id, name: currentUser.name }} />
+    </div>
+  )
+}
 
-        {isAssetsLoading ? (
-          <Skeleton className="h-28 w-full" />
-        ) : (assets ?? []).length === 0 ? (
-          <div className="rounded-lg border border-dashed border-gray-200 p-6 text-sm text-gray-500 dark:border-gray-700 dark:text-gray-400">
-            {t("documents.noAssets")}
-          </div>
-        ) : (
-          <div className="overflow-hidden rounded-lg border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-800">
-            <Table>
-              <TableHeader>
-                <TableRow className="bg-gray-50 dark:bg-gray-800/60">
-                  <TableHead>{t("documents.assetsTableFile")}</TableHead>
-                  <TableHead>{t("documents.assetsTableSize")}</TableHead>
-                  <TableHead>{t("documents.assetsTableUploaded")}</TableHead>
-                  <TableHead className="w-20" />
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {assets?.map((asset) => (
-                  <TableRow key={asset.id}>
-                    <TableCell className="font-medium text-gray-900 dark:text-white">{asset.fileName}</TableCell>
-                    <TableCell className="text-sm text-gray-500 dark:text-gray-400">{formatBytes(asset.size)}</TableCell>
-                    <TableCell className="text-sm text-gray-500 dark:text-gray-400">
-                      {format(new Date(asset.createdAt), "dd MMM yyyy HH:mm")}
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex items-center justify-end gap-1">
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="icon"
-                          aria-label={t("documents.downloadAsset")}
-                          onClick={() => handleDownload(asset.id)}
-                        >
-                          <Download className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="icon"
-                          aria-label={t("documents.deleteAsset")}
-                          disabled={isDeletingAsset || accessRole !== "EDITOR"}
-                          onClick={() => handleDeleteAsset(asset.id)}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </TableCell>
-                  </TableRow>
+function HistoryVersionPreview({
+  selectedVersion,
+  compareAgainstVersionId,
+  comparisonCandidates,
+  comparison,
+  diff,
+  onCompareAgainstChange,
+}: {
+  selectedVersion?: DocumentVersion
+  compareAgainstVersionId?: string
+  comparisonCandidates: DocumentVersion[]
+  comparison: {
+    fromVersionId: string
+    toVersionId: string
+    baseVersion: DocumentVersion
+    targetVersion: DocumentVersion
+    label: string
+  } | null
+  diff?: DocumentDiff
+  onCompareAgainstChange: (value: string) => void
+}) {
+  return (
+    <div className="flex flex-col bg-transparent">
+      <div className="border-b border-amber-200 bg-amber-50 px-5 py-4 text-amber-950 dark:border-amber-900/50 dark:bg-amber-950/40 dark:text-amber-100">
+        <div className="text-xs font-semibold uppercase tracking-[0.16em] text-amber-700 dark:text-amber-300">
+          Modo Historial
+        </div>
+        <div className="mt-1 text-lg font-semibold">
+          {selectedVersion
+            ? `Versión del ${format(new Date(selectedVersion.createdAt), "dd MMM yyyy, HH:mm")}`
+            : "Versión no encontrada"}
+        </div>
+        <div className="mt-1 text-sm text-amber-800/80 dark:text-amber-200/80">
+          {comparison?.label ?? "Selecciona otra versión para ver una comparación."}
+        </div>
+        {comparisonCandidates.length > 0 && (
+          <div className="mt-4 flex max-w-md flex-col gap-2">
+            <label className="text-xs font-semibold uppercase tracking-[0.16em] text-amber-700 dark:text-amber-300">
+              Comparar contra
+            </label>
+            <Select value={compareAgainstVersionId} onValueChange={onCompareAgainstChange}>
+              <SelectTrigger className="border-amber-300 bg-white/90 text-slate-900 dark:border-amber-800 dark:bg-slate-950 dark:text-slate-100">
+                <SelectValue placeholder="Selecciona una versión base" />
+              </SelectTrigger>
+              <SelectContent>
+                {comparisonCandidates.map((version) => (
+                  <SelectItem key={version.id} value={version.id}>
+                    {formatVersionChip(version)}
+                  </SelectItem>
                 ))}
-              </TableBody>
-            </Table>
+              </SelectContent>
+            </Select>
           </div>
         )}
       </div>
+
+      <div className="document-page-workspace">
+        <div className="mx-auto w-[816px] max-w-full border border-slate-200 bg-white px-16 py-12 shadow-[0_18px_40px_rgba(15,23,42,0.08)] dark:border-slate-800 dark:bg-slate-950">
+          <article className="prose prose-slate max-w-none whitespace-pre-wrap break-words text-[15px] leading-7 dark:prose-invert">
+            {selectedVersion?.plainText?.trim() ? (
+              selectedVersion.plainText
+            ) : (
+              <span className="text-slate-500 dark:text-slate-400">
+                Esta versión no tiene texto plano guardado todavía.
+              </span>
+            )}
+          </article>
+        </div>
+      </div>
+
+      <div className="border-t border-slate-200 bg-slate-50 dark:border-slate-800 dark:bg-slate-950/80">
+        <div className="mx-auto max-w-4xl px-6 py-5 lg:px-12">
+          <div className="mb-4 flex flex-wrap items-center gap-3">
+            <span className="rounded-full bg-slate-200 px-3 py-1 text-xs font-medium text-slate-700 dark:bg-slate-800 dark:text-slate-200">
+              Base: {comparison ? formatVersionChip(comparison.baseVersion) : "N/A"}
+            </span>
+            <span className="rounded-full bg-blue-100 px-3 py-1 text-xs font-medium text-blue-800 dark:bg-blue-950/70 dark:text-blue-200">
+              Comparada con: {comparison ? formatVersionChip(comparison.targetVersion) : "N/A"}
+            </span>
+          </div>
+
+          {diff ? (
+            <>
+              <div className="grid gap-3 sm:grid-cols-3">
+                <DiffSummaryCard
+                  label="Texto origen"
+                  value={`${diff.summary.fromLength} chars`}
+                />
+                <DiffSummaryCard
+                  label="Texto destino"
+                  value={`${diff.summary.toLength} chars`}
+                />
+                <DiffSummaryCard
+                  label="Diferencia"
+                  value={formatDelta(diff.summary.deltaLength)}
+                  accent={diff.summary.deltaLength >= 0 ? "positive" : "negative"}
+                />
+              </div>
+
+              <ScrollArea className="mt-4 h-[280px] rounded-xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">
+                <div className="divide-y divide-slate-100 dark:divide-slate-800">
+                  {diff.diff.length > 0 ? (
+                    diff.diff.map((entry, index) => (
+                      <div key={`${entry.index}-${index}`} className="p-4">
+                        <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                          {labelForDiffEntry(entry.type)} en índice {entry.index}
+                        </div>
+                        {"from" in entry && entry.from !== undefined && (
+                          <div className="rounded-md bg-rose-50 px-3 py-2 text-sm text-rose-900 dark:bg-rose-950/40 dark:text-rose-200">
+                            <span className="mr-2 text-xs font-semibold uppercase">Antes</span>
+                            {entry.from || "(vacío)"}
+                          </div>
+                        )}
+                        {"to" in entry && entry.to !== undefined && (
+                          <div className="mt-2 rounded-md bg-emerald-50 px-3 py-2 text-sm text-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-200">
+                            <span className="mr-2 text-xs font-semibold uppercase">Después</span>
+                            {entry.to || "(vacío)"}
+                          </div>
+                        )}
+                      </div>
+                    ))
+                  ) : (
+                    <div className="p-4 text-sm text-slate-500 dark:text-slate-400">
+                      No se encontraron diferencias entre estas versiones.
+                    </div>
+                  )}
+                </div>
+              </ScrollArea>
+            </>
+          ) : (
+            <div className="rounded-xl border border-dashed border-slate-300 px-4 py-6 text-sm text-slate-500 dark:border-slate-700 dark:text-slate-400">
+              No hay comparación disponible para esta versión todavía.
+            </div>
+          )}
+        </div>
+      </div>
     </div>
   )
+}
+
+function DiffSummaryCard({
+  label,
+  value,
+  accent = "neutral",
+}: {
+  label: string
+  value: string
+  accent?: "neutral" | "positive" | "negative"
+}) {
+  const accentClass =
+    accent === "positive"
+      ? "text-emerald-700 dark:text-emerald-300"
+      : accent === "negative"
+        ? "text-rose-700 dark:text-rose-300"
+        : "text-slate-900 dark:text-slate-100"
+
+  return (
+    <div className="rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
+      <div className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+        {label}
+      </div>
+      <div className={`mt-2 text-lg font-semibold ${accentClass}`}>{value}</div>
+    </div>
+  )
+}
+
+function labelForDiffEntry(type: DocumentDiff["diff"][number]["type"]) {
+  if (type === "added") return "Agregado"
+  if (type === "removed") return "Eliminado"
+  return "Modificado"
+}
+
+function formatVersionChip(version: DocumentVersion) {
+  const author = version.createdBy?.name ?? "Sistema"
+  return `${format(new Date(version.createdAt), "dd MMM HH:mm")} · ${author}`
+}
+
+function formatDelta(value: number) {
+  if (value === 0) return "0 chars"
+  return `${value > 0 ? "+" : ""}${value} chars`
 }
 
 function formatBytes(value: number) {

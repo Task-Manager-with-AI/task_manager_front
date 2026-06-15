@@ -29,6 +29,7 @@ type CollaborativeEditorProps = {
     id: string
     name: string
   }
+  onActiveUsersChange?: (users: Array<{ id: string; name: string; color: string }>) => void
 }
 
 type CollaborationResources = {
@@ -36,10 +37,12 @@ type CollaborationResources = {
   provider: HocuspocusProvider
 }
 
-export function CollaborativeEditor({ documentId, user }: CollaborativeEditorProps) {
+export function CollaborativeEditor({ documentId, user, onActiveUsersChange }: CollaborativeEditorProps) {
   const { t } = useTranslation()
   const [status, setStatus] = useState("connecting")
-  const [resources, setResources] = useState<CollaborationResources | null>(null)
+  const [resources, setResources] = useState<{ ydoc: Y.Doc; provider: HocuspocusProvider } | null>(
+    null
+  )
   const previousStatusRef = useRef<string | null>(null)
 
   useEffect(() => {
@@ -126,6 +129,7 @@ export function CollaborativeEditor({ documentId, user }: CollaborativeEditorPro
       status={status}
       t={t}
       user={user}
+      onActiveUsersChange={onActiveUsersChange}
     />
   )
 }
@@ -136,13 +140,34 @@ function CollaborativeEditorBody({
   t,
   user,
   ydoc,
+  onActiveUsersChange,
 }: {
   provider: HocuspocusProvider
   status: string
   t: (key: string) => string
   user: CollaborativeEditorProps["user"]
   ydoc: Y.Doc
+  onActiveUsersChange?: CollaborativeEditorProps["onActiveUsersChange"]
 }) {
+  const onActiveUsersChangeRef = useRef(onActiveUsersChange)
+  useEffect(() => {
+    onActiveUsersChangeRef.current = onActiveUsersChange
+  }, [onActiveUsersChange])
+
+  useEffect(() => {
+    const handleAwarenessChange = () => {
+      const states = Array.from(provider.awareness?.getStates().values() ?? [])
+      const users = states.map((s: any) => s.user).filter(Boolean)
+      const uniqueUsers = Array.from(new Map(users.map((u) => [u.id, u])).values())
+      onActiveUsersChangeRef.current?.(uniqueUsers)
+    }
+    
+    provider.awareness?.on("change", handleAwarenessChange)
+    return () => {
+      provider.awareness?.off("change", handleAwarenessChange)
+    }
+  }, [provider])
+
   const editor = useEditor({
     extensions: [
       StarterKit.configure({
@@ -165,7 +190,7 @@ function CollaborativeEditorBody({
     editorProps: {
       attributes: {
         class:
-          "min-h-[60vh] w-full max-w-none px-6 py-5 text-base leading-7 text-gray-900 outline-none dark:text-gray-100",
+          "min-h-[1056px] max-w-[816px] mx-auto px-16 py-12 my-8 text-base leading-7 text-gray-900 outline-none bg-white shadow-sm dark:bg-gray-900 border border-gray-100 dark:border-gray-800 dark:text-gray-100",
       },
     },
   })
@@ -257,14 +282,14 @@ function EditorShell({
   toolbar?: React.ReactNode
 }) {
   return (
-    <div className="overflow-hidden rounded-lg border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-900">
-      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-gray-200 bg-gray-50 px-3 py-2 dark:border-gray-700 dark:bg-gray-800">
+    <div className="flex flex-col h-full bg-transparent">
+      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-gray-200 bg-white px-4 py-2 dark:border-gray-800 dark:bg-gray-950 sticky top-0 z-10 shadow-sm">
         {toolbar ?? <div />}
         <div className="text-xs font-medium text-gray-500 dark:text-gray-400">
           {statusLabel(status, t)}
         </div>
       </div>
-      {children ?? <div className="min-h-[60vh] px-6 py-5" />}
+      {children ?? <div className="min-h-[1056px] px-16 py-12" />}
     </div>
   )
 }

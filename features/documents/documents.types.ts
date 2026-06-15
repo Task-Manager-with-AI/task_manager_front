@@ -40,6 +40,16 @@ export interface UpdateDocumentDto {
 
 export type DocumentPermissionRole = "VIEWER" | "COMMENTER" | "EDITOR"
 
+export type DocumentOutlineHeadingLevel = 1 | 2 | 3
+
+export interface DocumentOutlineHeading {
+  level: DocumentOutlineHeadingLevel
+  text: string
+  pos: number
+  numbering: string
+  displayText: string
+}
+
 export interface DocumentPermission {
   id: string
   documentId: string
@@ -90,10 +100,12 @@ export interface DocumentSuggestion {
 export interface DocumentVersion {
   id: string
   documentId: string
+  createdById?: string | null
   source: string
   plainText?: string | null
   metadata?: Record<string, unknown> | null
   createdAt: string
+  createdBy?: DocumentAuthor
 }
 
 export interface DocumentDiff {
