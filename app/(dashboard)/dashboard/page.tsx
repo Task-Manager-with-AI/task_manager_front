@@ -1,7 +1,7 @@
 "use client"
 
-import { ComingSoonPage } from "@/components/coming-soon-page"
+import { DashboardView } from "@/features/dashboard/DashboardView"
 
 export default function DashboardPage() {
-  return <ComingSoonPage titleKey="dashboard.title" descriptionKey="dashboard.description" />
+  return <DashboardView />
 }

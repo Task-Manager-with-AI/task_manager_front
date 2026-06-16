@@ -1,11 +1,15 @@
 "use client"
 
 import { useMemo, useState } from "react"
-import { Clock, Search, Users } from "lucide-react"
+import { useRouter } from "next/navigation"
+import { Clock, MessageCircle, Search, Users } from "lucide-react"
 import { useTranslation } from "@/components/locale-provider"
 import { useUsers } from "@/features/users/users.hooks"
+import { useCurrentUser } from "@/features/auth/auth.hooks"
+import { useGetOrCreateDirectChat } from "@/features/chats/chats.hooks"
 import { getMockPersonForUser, getTeamById, isPersonWorking } from "@/lib/people"
 import { Input } from "@/components/ui/input"
+import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Card, CardContent } from "@/components/ui/card"
@@ -13,8 +17,17 @@ import { Skeleton } from "@/components/ui/skeleton"
 
 export default function PeoplePage() {
   const { t } = useTranslation()
+  const router = useRouter()
   const { data: users, isLoading } = useUsers()
+  const { data: currentUser } = useCurrentUser()
+  const directChat = useGetOrCreateDirectChat()
   const [searchQuery, setSearchQuery] = useState("")
+
+  const handleMessage = (userId: string) => {
+    directChat.mutate(userId, {
+      onSuccess: (chat) => router.push(`/chats?chatId=${chat.id}`),
+    })
+  }
 
   const filteredUsers = useMemo(() => {
     const list = users ?? []
@@ -99,6 +112,18 @@ export default function PeoplePage() {
                       {mock.workingHours.start} – {mock.workingHours.end}
                       <span className={working ? "ml-1 inline-block h-2 w-2 rounded-full bg-green-400" : "ml-1 inline-block h-2 w-2 rounded-full bg-gray-300 dark:bg-gray-600"} />
                     </p>
+                    {currentUser?.id !== user.id && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="mt-3"
+                        disabled={directChat.isPending}
+                        onClick={() => handleMessage(user.id)}
+                      >
+                        <MessageCircle className="mr-2 h-4 w-4" />
+                        {t("chat.message")}
+                      </Button>
+                    )}
                   </div>
                 </CardContent>
               </Card>

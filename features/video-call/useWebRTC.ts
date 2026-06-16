@@ -7,6 +7,18 @@ const RTC_CONFIG: RTCConfiguration = {
   iceServers: [{ urls: "stun:stun.l.google.com:19302" }],
 }
 
+export const MEDIA_ERROR = {
+  INSECURE_CONTEXT: "INSECURE_CONTEXT",
+  UNAVAILABLE: "MEDIA_DEVICES_UNAVAILABLE",
+} as const
+
+function getMediaAccessError(): string | null {
+  if (typeof window === "undefined") return null
+  if (!window.isSecureContext) return MEDIA_ERROR.INSECURE_CONTEXT
+  if (!navigator.mediaDevices?.getUserMedia) return MEDIA_ERROR.UNAVAILABLE
+  return null
+}
+
 export interface RemoteStream {
   userId: string
   name: string
@@ -42,10 +54,17 @@ export function useWebRTC({
   // Get local media on mount
   useEffect(() => {
     if (!enabled) return
+
+    const accessError = getMediaAccessError()
+    if (accessError) {
+      setError(accessError)
+      return
+    }
+
     let cancelled = false
     let acquiredStream: MediaStream | null = null
 
-    navigator.mediaDevices
+    navigator.mediaDevices!
       .getUserMedia({ audio: true, video: true })
       .then((stream) => {
         if (cancelled) {

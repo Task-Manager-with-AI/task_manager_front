@@ -11,6 +11,7 @@ interface CallControlsProps {
   onToggleVideo: () => void
   onLeave: () => void
   leaving?: boolean
+  isHost?: boolean
 }
 
 export function CallControls({
@@ -20,6 +21,7 @@ export function CallControls({
   onToggleVideo,
   onLeave,
   leaving,
+  isHost = false,
 }: CallControlsProps) {
   const { t } = useTranslation()
 
@@ -43,7 +45,11 @@ export function CallControls({
       </Button>
       <Button variant="destructive" onClick={onLeave} disabled={leaving} className="gap-2">
         <PhoneOff className="h-5 w-5" />
-        {leaving ? t("videoCall.processing") : t("videoCall.leave")}
+        {leaving
+          ? t("videoCall.processing")
+          : isHost
+            ? t("videoCall.endMeeting")
+            : t("videoCall.leave")}
       </Button>
     </div>
   )

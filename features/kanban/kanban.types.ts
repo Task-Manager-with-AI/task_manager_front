@@ -72,6 +72,18 @@ export const COLUMN_COLOR_STYLES: Record<
   },
 }
 
-export function getColumnStyles(color: KanbanColumnColor | null | undefined) {
-  return COLUMN_COLOR_STYLES[color ?? "slate"]
+export function isKanbanColumnColor(
+  color: string | null | undefined
+): color is KanbanColumnColor {
+  return (
+    color != null &&
+    (KANBAN_COLUMN_COLORS as readonly string[]).includes(color)
+  )
+}
+
+export function getColumnStyles(color: KanbanColumnColor | string | null | undefined) {
+  if (isKanbanColumnColor(color)) {
+    return COLUMN_COLOR_STYLES[color]
+  }
+  return COLUMN_COLOR_STYLES.slate
 }

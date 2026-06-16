@@ -12,6 +12,7 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import type { Locale } from "@/lib/i18n/types"
+import { NotificationPreferences } from "@/features/notifications/NotificationPreferences"
 
 export default function SettingsPage() {
   const { t, locale, setLocale } = useTranslation()
@@ -47,6 +48,8 @@ export default function SettingsPage() {
             </div>
           </CardContent>
         </Card>
+
+        <NotificationPreferences />
 
         <Card className="border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-800">
           <CardHeader>
