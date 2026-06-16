@@ -20,64 +20,75 @@ import {
 import { Textarea } from "@/components/ui/textarea"
 import { Loader2 } from "lucide-react"
 import { toast } from "sonner"
+import { useCreateDiagram } from "../documents.hooks"
+import type { DiagramType, GeneratedDiagram } from "../documents.types"
 
 type EaDiagramModalProps = {
   isOpen: boolean
+  projectId: string
+  documentId?: string
   onClose: () => void
-  onGenerate: (imageUrl: string) => void
+  onGenerate: (diagram: GeneratedDiagram) => void
 }
 
-const DEFAULT_PLACEHOLDER = "Ejemplo: Sistema de gestión de usuarios con autenticación..."
+const DEFAULT_PLACEHOLDER = "Ejemplo: Sistema de gestion de usuarios con autenticacion..."
 const SEQUENCE_PLACEHOLDER =
-  "Ejemplo: Usuario inicia sesión, el frontend envía credenciales al backend, el backend consulta la base de datos y responde éxito o error."
+  "Ejemplo: Usuario inicia sesion, el frontend envia credenciales al backend, el backend consulta la base de datos y responde exito o error."
+const ACTIVITY_PLACEHOLDER =
+  "Ejemplo: Cliente confirma pedido, el sistema valida stock y fraude en paralelo, sincroniza resultados, decide si aprueba el pago, genera orden y finaliza."
+const COMPONENT_PLACEHOLDER =
+  "Ejemplo: Cliente web consume API Gateway, el gateway se comunica con servicios de autenticacion, catalogo y pedidos, pedidos depende de pagos, inventario y base de datos."
+const DEPLOYMENT_PLACEHOLDER =
+  "Ejemplo: Navegador del cliente se conecta a un servidor web, este enruta a un app server con API y worker, usa PostgreSQL y se integra con pagos y notificaciones."
 
-export function EaDiagramModal({ isOpen, onClose, onGenerate }: EaDiagramModalProps) {
+export function EaDiagramModal({
+  isOpen,
+  projectId,
+  documentId,
+  onClose,
+  onGenerate,
+}: EaDiagramModalProps) {
   const [prompt, setPrompt] = useState("")
-  const [diagramType, setDiagramType] = useState("class")
-  const [isGenerating, setIsGenerating] = useState(false)
+  const [diagramType, setDiagramType] = useState<DiagramType>("class")
+  const { mutateAsync: createDiagram, isPending: isGenerating } = useCreateDiagram(
+    projectId,
+    documentId
+  )
 
   const isSequenceDiagram = diagramType === "sequence"
+  const isActivityDiagram = diagramType === "activity"
+  const isComponentDiagram = diagramType === "component"
+  const isDeploymentDiagram = diagramType === "deployment"
   const description = isSequenceDiagram
-    ? "Describe el flujo de interacción entre participantes. La Inteligencia Artificial analizará actores, mensajes y fragmentos del escenario para que Enterprise Architect genere el diagrama de secuencia."
-    : "Describe el diagrama que deseas generar. La Inteligencia Artificial analizará el texto y Enterprise Architect dibujará el modelo."
-  const placeholder = isSequenceDiagram ? SEQUENCE_PLACEHOLDER : DEFAULT_PLACEHOLDER
+    ? "Describe el flujo de interaccion entre participantes. La Inteligencia Artificial analizara actores, mensajes y fragmentos del escenario para que Enterprise Architect genere el diagrama de secuencia."
+    : isActivityDiagram
+      ? "Describe un flujo de trabajo con inicio, acciones, decisiones, paralelismo y responsables cuando aplique. La Inteligencia Artificial estructurara el proceso para que Enterprise Architect genere el diagrama de actividad."
+      : isComponentDiagram
+        ? "Describe la arquitectura por componentes, capas y dependencias. La Inteligencia Artificial organizara componentes, sistemas externos e integraciones para que Enterprise Architect genere el diagrama de componentes."
+        : isDeploymentDiagram
+          ? "Describe una escena de infraestructura con cliente, servidor web, app server, base de datos, integraciones y artefactos desplegados. La Inteligencia Artificial organizara el despliegue para que Enterprise Architect genere un diagrama mas visual y legible."
+      : "Describe el diagrama que deseas generar. La Inteligencia Artificial analizara el texto y Enterprise Architect dibujara el modelo."
+  const placeholder = isSequenceDiagram
+    ? SEQUENCE_PLACEHOLDER
+    : isActivityDiagram
+      ? ACTIVITY_PLACEHOLDER
+      : isComponentDiagram
+        ? COMPONENT_PLACEHOLDER
+        : isDeploymentDiagram
+          ? DEPLOYMENT_PLACEHOLDER
+      : DEFAULT_PLACEHOLDER
 
   const handleGenerate = async () => {
     if (!prompt.trim()) return
 
-    setIsGenerating(true)
-    const aiBackendUrl = process.env.NEXT_PUBLIC_AI_BACKEND_URL || "http://localhost:8000"
     try {
-      const response = await fetch(`${aiBackendUrl}/api/v1/ea/generate`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ prompt, diagram_type: diagramType }),
+      const diagram = await createDiagram({
+        prompt,
+        diagram_type: diagramType,
       })
-
-      if (!response.ok) {
-        let errorMessage = "Error generating diagram"
-        try {
-          const errorBody = await response.json()
-          if (typeof errorBody?.detail === "string" && errorBody.detail.trim()) {
-            errorMessage = errorBody.detail
-          }
-        } catch {
-          // Keep default message when the backend does not return JSON.
-        }
-        throw new Error(errorMessage)
-      }
-
-      const data = await response.json()
-
-      if (data.status === "success" && data.url) {
-        onGenerate(data.url)
-        setPrompt("")
-        onClose()
-      } else {
-        throw new Error("Invalid response from server")
-      }
+      onGenerate(diagram)
+      setPrompt("")
+      onClose()
     } catch (error) {
       console.error("EA Generation error:", error)
       const errorMessage =
@@ -85,8 +96,6 @@ export function EaDiagramModal({ isOpen, onClose, onGenerate }: EaDiagramModalPr
           ? error.message
           : "Hubo un error al conectar con Enterprise Architect."
       toast.error(errorMessage)
-    } finally {
-      setIsGenerating(false)
     }
   }
 
@@ -100,7 +109,7 @@ export function EaDiagramModal({ isOpen, onClose, onGenerate }: EaDiagramModalPr
         <div className="grid gap-4 py-4">
           <div className="flex flex-col space-y-2">
             <label className="text-sm font-medium">Tipo de Diagrama</label>
-            <Select value={diagramType} onValueChange={setDiagramType}>
+            <Select value={diagramType} onValueChange={(value) => setDiagramType(value as DiagramType)}>
               <SelectTrigger>
                 <SelectValue placeholder="Selecciona el tipo de diagrama" />
               </SelectTrigger>
@@ -108,6 +117,9 @@ export function EaDiagramModal({ isOpen, onClose, onGenerate }: EaDiagramModalPr
                 <SelectItem value="class">Diagrama de Clases (Logical)</SelectItem>
                 <SelectItem value="use_case">Diagrama de Casos de Uso</SelectItem>
                 <SelectItem value="sequence">Diagrama de Secuencia</SelectItem>
+                <SelectItem value="activity">Diagrama de Actividad</SelectItem>
+                <SelectItem value="component">Diagrama de Componentes</SelectItem>
+                <SelectItem value="deployment">Diagrama de Despliegue</SelectItem>
               </SelectContent>
             </Select>
           </div>

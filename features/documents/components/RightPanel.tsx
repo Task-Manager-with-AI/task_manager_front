@@ -8,7 +8,11 @@ import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { useTranslation } from "@/components/locale-provider"
-import type { DocumentPermissionRole } from "@/features/documents/documents.types"
+import type {
+  DocumentPermissionRole,
+  GeneratedDiagram,
+} from "@/features/documents/documents.types"
+import { DiagramGallery } from "./DiagramGallery"
 
 type RightPanelProps = {
   accessRole: DocumentPermissionRole
@@ -25,6 +29,7 @@ type RightPanelProps = {
   isRestoringVersion: boolean
   selectedVersionId?: string
   onSelectVersion?: (id: string) => void
+  diagrams: GeneratedDiagram[]
 }
 
 export function RightPanel({
@@ -41,6 +46,7 @@ export function RightPanel({
   isRestoringVersion,
   selectedVersionId,
   onSelectVersion,
+  diagrams,
 }: RightPanelProps) {
   const { t } = useTranslation()
   const [newThreadText, setNewThreadText] = useState("")
@@ -60,9 +66,10 @@ export function RightPanel({
     <div className="flex h-full w-80 flex-col border-l border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-900 shrink-0">
       <Tabs defaultValue="historial" className="flex h-full flex-col">
         <div className="border-b border-gray-200 px-4 py-3 dark:border-gray-800">
-          <TabsList className="grid w-full grid-cols-2">
+          <TabsList className="grid w-full grid-cols-3">
             <TabsTrigger value="historial">Historial</TabsTrigger>
             <TabsTrigger value="comentarios">Comentarios</TabsTrigger>
+            <TabsTrigger value="diagramas">Diagramas</TabsTrigger>
           </TabsList>
         </div>
 
@@ -182,6 +189,14 @@ export function RightPanel({
               <p className="text-sm text-gray-500 text-center py-4">No hay comentarios activos.</p>
             )}
           </div>
+        </TabsContent>
+
+        <TabsContent value="diagramas" className="flex-1 overflow-y-auto p-4 m-0 data-[state=inactive]:hidden">
+          <DiagramGallery
+            diagrams={diagrams}
+            title="Diagramas de este documento"
+            emptyMessage="Aún no hay diagramas generados para este documento."
+          />
         </TabsContent>
       </Tabs>
     </div>

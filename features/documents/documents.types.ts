@@ -38,6 +38,8 @@ export interface UpdateDocumentDto {
   title: string
 }
 
+export type DiagramType = "class" | "use_case" | "sequence" | "activity" | "component" | "deployment"
+
 export type DocumentPermissionRole = "VIEWER" | "COMMENTER" | "EDITOR"
 
 export type DocumentOutlineHeadingLevel = 1 | 2 | 3
@@ -138,5 +140,23 @@ export interface ConversionJob {
   errorMessage?: string | null
   createdAt: string
   updatedAt: string
+}
+
+export interface GeneratedDiagram {
+  id: string
+  projectId: string
+  documentId?: string | null
+  title: string
+  diagramType: DiagramType
+  prompt?: string | null
+  url: string
+  createdAt: string
+  updatedAt: string
+  createdById: string
+  createdBy?: DocumentAuthor
+  document?: {
+    id: string
+    title: string
+  } | null
 }
 
