@@ -15,7 +15,8 @@
     "projectTasks": "My Tasks",
     "kanban": "Kanban",
     "meetings": "Meetings",
-    "documents": "Documents"
+    "documents": "Documents",
+    "copilot": "AI Copilot"
   },
   "common": {
     "cancel": "Cancel",

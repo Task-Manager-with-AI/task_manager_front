@@ -40,9 +40,11 @@ import {
   FolderOpen,
   Menu,
   X,
+  Sparkles,
 } from "lucide-react"
 import { useCreateProject } from "@/features/projects/projects.hooks"
 import { useCurrentUser, useLogout } from "@/features/auth/auth.hooks"
+import { NotificationBell } from "@/features/notifications/NotificationBell"
 
 interface Project {
   id: string
@@ -86,6 +88,12 @@ const PROJECT_SUB_ITEMS: SubItem[] = [
     icon: FileText,
     getPath: (id) => `/projects/${id}/documents`,
     isActiveFn: (p, id) => p.startsWith(`/projects/${id}/documents`),
+  },
+  {
+    key: "nav.copilot",
+    icon: Sparkles,
+    getPath: (id) => `/projects/${id}/copilot`,
+    isActiveFn: (p, id) => p.startsWith(`/projects/${id}/copilot`),
   },
 ]
 
@@ -423,29 +431,7 @@ export default function DashboardLayout({ children, projects }: DashboardLayoutP
               <ThemeToggle />
 
               {/* Notifications */}
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button variant="ghost" size="icon" aria-label={t("common.openNotifications")}>
-                    <Bell className="h-4 w-4" />
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent
-                  className="w-72 border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-800 sm:w-80"
-                  align="end"
-                >
-                  <div className="space-y-4">
-                    <div className="flex items-center justify-between">
-                      <h3 className="font-semibold text-gray-900 dark:text-white">
-                        {t("common.notifications")}
-                      </h3>
-                    </div>
-                    <Separator className="bg-gray-200 dark:bg-gray-700" />
-                    <p className="py-6 text-center text-sm text-gray-500 dark:text-gray-400">
-                      {t("common.noNotifications")}
-                    </p>
-                  </div>
-                </PopoverContent>
-              </Popover>
+              <NotificationBell />
 
               {/* User menu */}
               <Popover>
