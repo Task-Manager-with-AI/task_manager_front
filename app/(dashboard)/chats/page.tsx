@@ -1,7 +1,12 @@
 "use client"
 
-import { ComingSoonPage } from "@/components/coming-soon-page"
+import { Suspense } from "react"
+import { ChatLayout } from "@/features/chats/ChatLayout"
 
 export default function ChatsPage() {
-  return <ComingSoonPage titleKey="chats.title" descriptionKey="chats.description" />
+  return (
+    <Suspense fallback={null}>
+      <ChatLayout />
+    </Suspense>
+  )
 }

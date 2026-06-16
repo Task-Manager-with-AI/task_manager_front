@@ -5,6 +5,7 @@ import { ThemeProvider } from "@/components/theme-provider"
 import { LocaleProvider } from "@/components/locale-provider"
 import { DocumentTitle } from "@/components/document-title"
 import { QueryProvider } from "@/app/query-provider"
+import { Toaster } from "@/components/ui/sonner"
 
 const inter = Inter({ subsets: ["latin"] })
 
@@ -25,6 +26,7 @@ export default function RootLayout({
           <LocaleProvider>
             <DocumentTitle />
             <QueryProvider>{children}</QueryProvider>
+            <Toaster richColors position="top-right" />
           </LocaleProvider>
         </ThemeProvider>
       </body>

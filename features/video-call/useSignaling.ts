@@ -41,11 +41,12 @@ export function useSignaling(options: UseSignalingOptions) {
   useEffect(() => {
     if (!options.enabled || !options.meetingId) return
 
-    const socket = io(SOCKET_URL || undefined, {
+    const socketOpts = {
       path: "/socket.io",
       withCredentials: true,
       transports: ["websocket", "polling"],
-    })
+    }
+    const socket = SOCKET_URL ? io(SOCKET_URL, socketOpts) : io(socketOpts)
     socketRef.current = socket
 
     socket.on("connect", () => {

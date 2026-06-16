@@ -16,7 +16,7 @@
     "kanban": "Kanban",
     "meetings": "Reuniones",
     "documents": "Documentos",
-    "receipts": "Recibos"
+    "copilot": "Copiloto IA"
   },
   "common": {
     "cancel": "Cancelar",
@@ -318,20 +318,25 @@
     "disconnected": "Desconectado",
     "mediaError": "No se pudo acceder a la cámara o al micrófono",
     "recording": "Grabando",
+    "recordingMeeting": "Grabando reunión",
     "notRecording": "Sin grabación",
+    "hostRecords": "El anfitrión graba la reunión",
     "participant": "participante",
     "participants": "participantes",
     "muteMic": "Silenciar micrófono",
     "unmuteMic": "Activar micrófono",
     "turnOffCamera": "Apagar cámara",
     "turnOnCamera": "Encender cámara",
-    "leave": "Terminar",
+    "leave": "Salir",
+    "endMeeting": "Terminar reunión",
     "processing": "Procesando…",
     "processingTitle": "Procesando audio y generando minutas…",
     "processingHint": "Esto puede tardar entre 30 segundos y unos minutos según la duración de la reunión. Cuando termine, te llevaremos a la página de la minuta automáticamente.",
     "backToProject": "Volver al proyecto",
     "processingFailed": "Error al procesar. Puedes volver al proyecto e intentarlo más tarde.",
-    "permissionDenied": "Permiso denegado — permite cámara y micrófono para unirte a la llamada."
+    "permissionDenied": "Permiso denegado — permite cámara y micrófono para unirte a la llamada.",
+    "insecureContext": "La cámara y el micrófono solo funcionan en HTTPS o localhost. Desde otro equipo en la red, inicia el frontend con «npm run dev:network» y entra por https://[IP-del-PC]:3000 (acepta el certificado autofirmado).",
+    "mediaUnavailable": "Tu navegador no expone cámara ni micrófono en esta página. Usa HTTPS o un navegador compatible."
   },
   "minutes": {
     "pageTitle": "Minuta",
@@ -377,6 +382,38 @@
     "noMembersHint": "Los usuarios registrados aparecerán aquí.",
     "active": "Activo",
     "inactive": "Inactivo"
+  },
+  "chat": {
+    "title": "Chats",
+    "searchPlaceholder": "Buscar conversaciones…",
+    "noChats": "Aún no tienes conversaciones",
+    "noMessages": "No hay mensajes todavía. ¡Escribe el primero!",
+    "noMessagesYet": "Sin mensajes",
+    "message": "Mensaje",
+    "typeMessage": "Escribe un mensaje…",
+    "typing": "está escribiendo…",
+    "online": "En línea",
+    "offline": "Desconectado",
+    "members": "miembros",
+    "replyingTo": "Respondiendo a",
+    "reply": "Responder",
+    "convertToTask": "Convertir en tarea",
+    "convertToTaskHint": "Se creará una tarea en el tablero del proyecto a partir de este mensaje.",
+    "taskTitle": "Título de la tarea",
+    "createTask": "Crear tarea",
+    "taskCreated": "Tarea creada",
+    "delete": "Eliminar",
+    "edited": "editado",
+    "messageDeleted": "Mensaje eliminado",
+    "downloadFile": "Descargar archivo",
+    "selectConversation": "Selecciona una conversación",
+    "selectConversationHint": "Elige un chat de la barra lateral para empezar a conversar",
+    "whatDidIMiss": "¿Qué me perdí?",
+    "summaryTitle": "Resumen del chat",
+    "summaryHint": "Resumen generado por IA de los mensajes recientes.",
+    "summaryLoading": "Generando resumen…",
+    "summaryEmpty": "No hay mensajes nuevos para resumir.",
+    "actionFailed": "No se pudo completar la acción. Inténtalo de nuevo."
   },
   "chats": {
     "title": "Chats",
@@ -435,11 +472,77 @@
   },
   "dashboard": {
     "title": "Panel",
-    "description": "Las métricas y el resumen de proyectos estarán disponibles aquí."
-  },
-  "receipts": {
-    "title": "Recibos",
-    "description": "El seguimiento de gastos y registros financieros estará disponible aquí."
+    "subtitle": "Métricas Scrum, estado de proyectos y próximas fechas importantes.",
+    "description": "Las métricas y el resumen de proyectos estarán disponibles aquí.",
+    "greeting": "Hola, {name}",
+    "guest": "Usuario",
+    "filterProject": "Filtrar por proyecto",
+    "allProjects": "Todos mis proyectos",
+    "projectsSection": "Estado de proyectos",
+    "chartsSection": "Gráficos Scrum",
+    "progress": "Progreso",
+    "tasksDone": "tareas completadas",
+    "sprintEnds": "Termina",
+    "openProject": "Abrir proyecto {name}",
+    "noProjects": "No tienes proyectos asignados todavía.",
+    "loadError": "No se pudo cargar el panel. Intenta de nuevo.",
+    "kpis": {
+      "activeProjects": "Proyectos activos",
+      "openTasks": "Tareas abiertas",
+      "overdueTasks": "Tareas vencidas",
+      "meetingsThisWeek": "Reuniones esta semana"
+    },
+    "sprintHealth": {
+      "green": "Saludable",
+      "yellow": "Atención",
+      "red": "Crítico"
+    },
+    "priority": {
+      "high": "Alta",
+      "medium": "Media",
+      "low": "Baja"
+    },
+    "unit": {
+      "storyPoints": "Story points",
+      "tasks": "Tareas"
+    },
+    "charts": {
+      "burndown": "Burndown del sprint",
+      "burnup": "Burnup del sprint",
+      "byColumn": "Tareas por columna",
+      "byPriority": "Tareas por prioridad",
+      "velocity": "Velocidad semanal",
+      "burndownDesc": "Trabajo restante vs línea ideal",
+      "burnupDesc": "Alcance vs trabajo completado",
+      "byColumnDesc": "Distribución Kanban actual",
+      "byPriorityDesc": "Backlog por prioridad",
+      "velocityDesc": "Tareas completadas por semana (últimas 5)",
+      "ideal": "Ideal",
+      "actual": "Real",
+      "scope": "Alcance",
+      "completed": "Completado",
+      "noActiveSprint": "Sin sprint activo para este filtro",
+      "noData": "Sin datos para mostrar",
+      "totalTasks": "tareas",
+      "tasks": "Tareas",
+      "burndownAria": "Gráfico burndown del sprint activo",
+      "burnupAria": "Gráfico burnup del sprint activo",
+      "byColumnAria": "Gráfico de torta de tareas por columna Kanban",
+      "byPriorityAria": "Gráfico de barras de tareas por prioridad",
+      "velocityAria": "Gráfico de velocidad semanal"
+    },
+    "calendar": {
+      "title": "Calendario",
+      "upcoming": "Próximos eventos",
+      "eventsOn": "Eventos del {date}",
+      "noEvents": "No hay eventos próximos en este rango",
+      "noEventsDay": "Sin eventos este día"
+    },
+    "eventTypes": {
+      "taskDue": "Vencimiento",
+      "meeting": "Reunión",
+      "sprintEnd": "Fin de sprint"
+    }
   },
   "help": {
     "title": "Ayuda y soporte",
