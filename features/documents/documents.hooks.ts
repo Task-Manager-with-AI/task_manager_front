@@ -4,7 +4,12 @@ import { useEffect, useRef } from "react"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { documentsApi } from "./documents.api"
 import { documentsLogger, toShortErrorMessage } from "./documents.logger"
-import type { ConversionJob, CreateDocumentDto, UpdateDocumentDto } from "./documents.types"
+import type {
+  ConversionJob,
+  CreateDocumentDto,
+  DiagramType,
+  UpdateDocumentDto,
+} from "./documents.types"
 
 export function useProjectDocuments(projectId: string) {
   return useQuery({
@@ -69,6 +74,70 @@ export function useDocument(documentId: string) {
   })
 }
 
+export function useProjectDiagrams(projectId: string) {
+  return useQuery({
+    queryKey: ["project-diagrams", projectId],
+    queryFn: async () => {
+      documentsLogger.debug({
+        event: "projectDiagrams:query:fetch",
+        scope: "hook",
+        projectId,
+      })
+      try {
+        const data = await documentsApi.listProjectDiagrams(projectId)
+        documentsLogger.info({
+          event: "projectDiagrams:query:success",
+          scope: "hook",
+          projectId,
+          count: data.length,
+        })
+        return data
+      } catch (error) {
+        documentsLogger.error({
+          event: "projectDiagrams:query:error",
+          scope: "hook",
+          projectId,
+          message: toShortErrorMessage(error),
+        })
+        throw error
+      }
+    },
+    enabled: Boolean(projectId),
+  })
+}
+
+export function useDocumentDiagrams(documentId: string) {
+  return useQuery({
+    queryKey: ["document-diagrams", documentId],
+    queryFn: async () => {
+      documentsLogger.debug({
+        event: "documentDiagrams:query:fetch",
+        scope: "hook",
+        documentId,
+      })
+      try {
+        const data = await documentsApi.listDocumentDiagrams(documentId)
+        documentsLogger.info({
+          event: "documentDiagrams:query:success",
+          scope: "hook",
+          documentId,
+          count: data.length,
+        })
+        return data
+      } catch (error) {
+        documentsLogger.error({
+          event: "documentDiagrams:query:error",
+          scope: "hook",
+          documentId,
+          message: toShortErrorMessage(error),
+        })
+        throw error
+      }
+    },
+    enabled: Boolean(documentId),
+  })
+}
+
 export function useCreateDocument(projectId: string) {
   const queryClient = useQueryClient()
 
@@ -95,6 +164,54 @@ export function useCreateDocument(projectId: string) {
         event: "document:create:mutation:error",
         scope: "hook",
         projectId,
+        message: toShortErrorMessage(error),
+      })
+    },
+  })
+}
+
+export function useCreateDiagram(projectId: string, documentId?: string) {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async (dto: {
+      prompt: string
+      diagram_type: DiagramType
+      title?: string
+    }) => {
+      documentsLogger.debug({
+        event: "diagram:create:mutation:start",
+        scope: "hook",
+        projectId,
+        documentId,
+        status: dto.diagram_type,
+      })
+      return documentsApi.createDiagram(projectId, {
+        ...dto,
+        documentId,
+      })
+    },
+    onSuccess: (diagram) => {
+      documentsLogger.info({
+        event: "diagram:create:mutation:success",
+        scope: "hook",
+        projectId,
+        documentId: diagram.documentId ?? documentId,
+        status: diagram.diagramType,
+      })
+      queryClient.invalidateQueries({ queryKey: ["project-diagrams", projectId] })
+      if (diagram.documentId ?? documentId) {
+        queryClient.invalidateQueries({
+          queryKey: ["document-diagrams", diagram.documentId ?? documentId],
+        })
+      }
+    },
+    onError: (error) => {
+      documentsLogger.error({
+        event: "diagram:create:mutation:error",
+        scope: "hook",
+        projectId,
+        documentId,
         message: toShortErrorMessage(error),
       })
     },
