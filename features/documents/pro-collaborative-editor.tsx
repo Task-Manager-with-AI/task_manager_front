@@ -19,7 +19,7 @@ import {
   yUndoPlugin,
 } from "y-prosemirror"
 import * as Y from "yjs"
-import { Bold, Eraser, Heading1, Heading2, Heading3, Italic, List, ListOrdered, Palette, Redo2, Undo2, Network, RotateCw, AlignLeft, AlignCenter, AlignRight } from "lucide-react"
+import { Bold, Eraser, Expand, Heading1, Heading2, Heading3, Italic, List, ListOrdered, Maximize, Network, Palette, Redo2, RotateCw, Scan, Undo2, AlignLeft, AlignCenter, AlignRight } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import {
   Select,
@@ -31,9 +31,10 @@ import {
 import { documentsLogger } from "./documents.logger"
 import type { DocumentOutlineHeading, DocumentPermissionRole } from "./documents.types"
 import { EaDiagramModal } from "./components/EaDiagramModal"
-import { toast } from "sonner"
+import { ImageViewerModal } from "./components/ImageViewerModal"
 
 type ProEditorProps = {
+  projectId: string
   documentId: string
   user: {
     id: string
@@ -49,6 +50,269 @@ type ProEditorProps = {
 
 const HEADING_SCROLL_MARGIN_PX = 20
 const HEADING_HIGHLIGHT_DURATION_MS = 1000
+const DEFAULT_IMAGE_WIDTH_RATIO = 0.92
+const MIN_IMAGE_WIDTH_PX = 160
+const IMAGE_WIDTH_PRESETS = [
+  { label: "50%", ratio: 0.5 },
+  { label: "75%", ratio: 0.75 },
+  { label: "92%", ratio: 0.92 },
+  { label: "100%", ratio: 1 },
+] as const
+
+type ImageAlign = "left" | "center" | "right"
+
+type ImageNodeAttrs = {
+  src: string
+  alt?: string
+  title?: string
+  rotation?: number
+  align?: ImageAlign
+  width?: number | null
+}
+
+type SelectedImageState = {
+  attrs: ImageNodeAttrs
+  naturalHeight: number
+  naturalWidth: number
+  pos: number
+  rect: {
+    height: number
+    left: number
+    top: number
+    width: number
+  }
+}
+
+function getEditorContentWidth(editorDom: HTMLElement | null | undefined) {
+  if (!editorDom) return 0
+  const styles = window.getComputedStyle(editorDom)
+  const paddingLeft = Number.parseFloat(styles.paddingLeft || "0")
+  const paddingRight = Number.parseFloat(styles.paddingRight || "0")
+  return Math.max(0, editorDom.clientWidth - paddingLeft - paddingRight)
+}
+
+function resolveImageWidth(width: number, maxWidth: number) {
+  if (maxWidth <= 0) {
+    return Math.max(MIN_IMAGE_WIDTH_PX, Math.round(width))
+  }
+
+  const effectiveMinWidth = Math.min(MIN_IMAGE_WIDTH_PX, Math.round(maxWidth))
+  return Math.max(effectiveMinWidth, Math.min(Math.round(width), Math.round(maxWidth)))
+}
+
+function normalizeImageRotation(rotation?: number) {
+  const normalized = ((rotation || 0) % 360 + 360) % 360
+  if (normalized === 90 || normalized === 270) return normalized
+  if (normalized === 180) return 180
+  return 0
+}
+
+function isQuarterTurnRotation(rotation?: number) {
+  const normalized = normalizeImageRotation(rotation)
+  return normalized === 90 || normalized === 270
+}
+
+type ImageGeometry = {
+  baseHeight: number
+  baseWidth: number
+  maxAllowedBaseWidth: number
+  maxAllowedVisibleHeight: number
+  visibleHeight: number
+  visibleWidth: number
+}
+
+function buildImageGeometry({
+  naturalWidth,
+  naturalHeight,
+  rotation,
+  storedWidth,
+  editorContentWidth,
+}: {
+  editorContentWidth: number
+  naturalHeight: number
+  naturalWidth: number
+  rotation?: number
+  storedWidth?: number | null
+}): ImageGeometry {
+  const safeNaturalWidth = Math.max(1, naturalWidth || 1)
+  const safeNaturalHeight = Math.max(1, naturalHeight || 1)
+  const aspectRatio = safeNaturalHeight / safeNaturalWidth
+  const quarterTurn = isQuarterTurnRotation(rotation)
+  const maxAllowedBaseWidth =
+    editorContentWidth > 0
+      ? quarterTurn
+        ? Math.max(1, editorContentWidth / aspectRatio)
+        : Math.max(1, editorContentWidth)
+      : safeNaturalWidth
+
+  const resolvedBaseWidth = storedWidth
+    ? resolveImageWidth(storedWidth, maxAllowedBaseWidth)
+    : Math.min(safeNaturalWidth, maxAllowedBaseWidth)
+  const baseHeight = resolvedBaseWidth * aspectRatio
+
+  return {
+    baseWidth: resolvedBaseWidth,
+    baseHeight,
+    maxAllowedVisibleHeight: quarterTurn ? maxAllowedBaseWidth : maxAllowedBaseWidth * aspectRatio,
+    visibleWidth: quarterTurn ? baseHeight : resolvedBaseWidth,
+    visibleHeight: quarterTurn ? resolvedBaseWidth : baseHeight,
+    maxAllowedBaseWidth,
+  }
+}
+
+function getBaseWidthForVisibleTarget({
+  editorContentWidth,
+  naturalHeight,
+  naturalWidth,
+  rotation,
+  targetVisibleWidth,
+}: {
+  editorContentWidth: number
+  naturalHeight: number
+  naturalWidth: number
+  rotation?: number
+  targetVisibleWidth: number
+}) {
+  const geometry = buildImageGeometry({
+    naturalWidth,
+    naturalHeight,
+    rotation,
+    storedWidth: null,
+    editorContentWidth,
+  })
+  const safeNaturalWidth = Math.max(1, naturalWidth || 1)
+  const safeNaturalHeight = Math.max(1, naturalHeight || 1)
+  const aspectRatio = safeNaturalHeight / safeNaturalWidth
+  const normalizedTarget = Math.max(1, targetVisibleWidth)
+  const proposedBaseWidth = isQuarterTurnRotation(rotation)
+    ? normalizedTarget / aspectRatio
+    : normalizedTarget
+
+  return resolveImageWidth(proposedBaseWidth, geometry.maxAllowedBaseWidth)
+}
+
+function getBaseWidthForVisibleHeightTarget({
+  editorContentWidth,
+  naturalHeight,
+  naturalWidth,
+  rotation,
+  targetVisibleHeight,
+}: {
+  editorContentWidth: number
+  naturalHeight: number
+  naturalWidth: number
+  rotation?: number
+  targetVisibleHeight: number
+}) {
+  const geometry = buildImageGeometry({
+    naturalWidth,
+    naturalHeight,
+    rotation,
+    storedWidth: null,
+    editorContentWidth,
+  })
+  const safeNaturalWidth = Math.max(1, naturalWidth || 1)
+  const safeNaturalHeight = Math.max(1, naturalHeight || 1)
+  const aspectRatio = safeNaturalHeight / safeNaturalWidth
+  const normalizedTarget = Math.max(1, targetVisibleHeight)
+  const proposedBaseWidth = isQuarterTurnRotation(rotation)
+    ? normalizedTarget
+    : normalizedTarget / aspectRatio
+
+  return resolveImageWidth(proposedBaseWidth, geometry.maxAllowedBaseWidth)
+}
+
+function getAutoImageWidth(
+  editorDom: HTMLElement | null | undefined,
+  naturalWidth: number,
+  naturalHeight: number,
+  rotation?: number
+) {
+  const contentWidth = getEditorContentWidth(editorDom)
+  if (contentWidth <= 0) {
+    return naturalWidth > 0 ? naturalWidth : MIN_IMAGE_WIDTH_PX
+  }
+
+  const targetVisibleWidth = Math.floor(contentWidth * DEFAULT_IMAGE_WIDTH_RATIO)
+  return getBaseWidthForVisibleTarget({
+    editorContentWidth: contentWidth,
+    naturalWidth,
+    naturalHeight,
+    rotation,
+    targetVisibleWidth,
+  })
+}
+
+function applyImageLayout(
+  dom: HTMLElement,
+  img: HTMLImageElement,
+  attrs: ImageNodeAttrs,
+  naturalWidth: number,
+  naturalHeight: number,
+  editorContentWidth: number
+) {
+  const align = attrs.align || "center"
+  const geometry = buildImageGeometry({
+    naturalWidth,
+    naturalHeight,
+    rotation: attrs.rotation,
+    storedWidth: attrs.width,
+    editorContentWidth,
+  })
+
+  dom.dataset.imageAlign = align
+  dom.dataset.rotation = String(normalizeImageRotation(attrs.rotation))
+  dom.style.maxWidth = "100%"
+  dom.style.width = `${geometry.visibleWidth}px`
+  dom.style.height = `${geometry.visibleHeight}px`
+  dom.style.marginTop = "1rem"
+  dom.style.marginBottom = "1rem"
+  dom.style.marginLeft = align === "right" ? "auto" : align === "center" ? "auto" : "0"
+  dom.style.marginRight = align === "left" ? "auto" : align === "center" ? "auto" : "0"
+  dom.style.position = "relative"
+
+  img.style.position = "absolute"
+  img.style.left = "50%"
+  img.style.top = "50%"
+  img.style.display = "block"
+  img.style.width = `${geometry.baseWidth}px`
+  img.style.height = `${geometry.baseHeight}px`
+  img.style.maxWidth = "none"
+  img.style.transition = "transform 0.2s ease-in-out"
+  img.style.transformOrigin = "center"
+  img.style.transform = `translate(-50%, -50%) rotate(${normalizeImageRotation(attrs.rotation)}deg)`
+  img.style.cursor = "grab"
+}
+
+function getSelectedImageState(view: EditorView | null): SelectedImageState | null {
+  if (!view) return null
+
+  const selection = view.state.selection as any
+  if (!selection?.node || selection.node.type?.name !== "image") {
+    return null
+  }
+
+  const pos = selection.from
+  const nodeDom = view.nodeDOM(pos)
+  if (!(nodeDom instanceof HTMLElement)) {
+    return null
+  }
+
+  const rect = nodeDom.getBoundingClientRect()
+  const imageElement = nodeDom.querySelector("img")
+  return {
+    pos,
+    attrs: selection.node.attrs as ImageNodeAttrs,
+    naturalWidth: imageElement instanceof HTMLImageElement ? imageElement.naturalWidth : 0,
+    naturalHeight: imageElement instanceof HTMLImageElement ? imageElement.naturalHeight : 0,
+    rect: {
+      top: rect.top,
+      left: rect.left,
+      width: rect.width,
+      height: rect.height,
+    },
+  }
+}
 
 let customNodes = basicSchema.spec.nodes
 let customMarks = basicSchema.spec.marks
@@ -171,55 +435,116 @@ customMarks = customMarks.addToEnd("font_family", fontFamilyMark as any)
 class ImageNodeView {
   dom: HTMLElement
   img: HTMLImageElement
-  handle: HTMLElement
+  widthHandle: HTMLElement
+  heightHandle: HTMLElement
   node: any
   view: EditorView
   getPos: () => number | undefined
+  naturalHeight: number
+  naturalWidth: number
 
   constructor(node: any, view: EditorView, getPos: () => number | undefined) {
     this.node = node
     this.view = view
     this.getPos = getPos
+    this.naturalHeight = 0
+    this.naturalWidth = 0
 
     this.dom = document.createElement("span")
     this.dom.className = "image-wrapper prose-image-draggable"
 
     this.img = document.createElement("img")
-    this.updateImgAttrs(node.attrs)
+    this.widthHandle = document.createElement("div")
+    this.widthHandle.className = "resize-handle resize-handle-width"
+    this.heightHandle = document.createElement("div")
+    this.heightHandle.className = "resize-handle resize-handle-height"
+
+    this.onWidthMouseDown = this.onWidthMouseDown.bind(this)
+    this.onHeightMouseDown = this.onHeightMouseDown.bind(this)
+    this.onImageLoad = this.onImageLoad.bind(this)
+    this.widthHandle.addEventListener("mousedown", this.onWidthMouseDown)
+    this.heightHandle.addEventListener("mousedown", this.onHeightMouseDown)
+    this.img.addEventListener("load", this.onImageLoad)
+
     this.dom.appendChild(this.img)
-
-    this.handle = document.createElement("div")
-    this.handle.className = "resize-handle"
-    this.dom.appendChild(this.handle)
-
-    this.onMouseDown = this.onMouseDown.bind(this)
-    this.handle.addEventListener("mousedown", this.onMouseDown)
+    this.dom.appendChild(this.widthHandle)
+    this.dom.appendChild(this.heightHandle)
+    this.updateImgAttrs(node.attrs)
   }
 
-  updateImgAttrs(attrs: any) {
+  onImageLoad() {
+    this.naturalWidth = this.img.naturalWidth || this.naturalWidth
+    this.naturalHeight = this.img.naturalHeight || this.naturalHeight
+
+    if (this.node.attrs.width) {
+      this.updateImgAttrs(this.node.attrs)
+      return
+    }
+
+    const pos = this.getPos()
+    if (typeof pos !== "number") return
+
+    const nextWidth = getAutoImageWidth(
+      this.view.dom as HTMLElement,
+      this.naturalWidth,
+      this.naturalHeight,
+      this.node.attrs.rotation
+    )
+    const tr = this.view.state.tr.setNodeMarkup(pos, null, {
+      ...this.node.attrs,
+      width: nextWidth,
+    })
+    this.view.dispatch(tr)
+  }
+
+  updateImgAttrs(attrs: ImageNodeAttrs) {
     const { src, alt, title, rotation, align, width } = attrs
-    this.img.src = src
+    if (this.img.src !== src) {
+      this.img.src = src
+    }
     if (alt) this.img.alt = alt
     if (title) this.img.title = title
-    
-    let marginStyle = "margin: 1rem auto;"
-    if (align === "left") marginStyle = "margin: 1rem auto 1rem 0;"
-    if (align === "right") marginStyle = "margin: 1rem 0 1rem auto;"
-    
-    let widthStyle = width ? `width: ${width}px;` : "max-width: 100%;"
-    
-    this.img.style.cssText = `transform: rotate(${rotation || 0}deg); transition: transform 0.2s ease-in-out; cursor: grab; display: block; ${marginStyle} transform-origin: center; ${widthStyle}`
+    applyImageLayout(
+      this.dom,
+      this.img,
+      { src, alt, title, rotation, align, width },
+      this.naturalWidth || this.img.naturalWidth || 1,
+      this.naturalHeight || this.img.naturalHeight || 1,
+      getEditorContentWidth(this.view.dom as HTMLElement)
+    )
   }
 
-  onMouseDown(e: MouseEvent) {
+  onWidthMouseDown(e: MouseEvent) {
     e.preventDefault()
     const startX = e.pageX
-    const startWidth = this.img.clientWidth
+    const contentWidth = getEditorContentWidth(this.view.dom as HTMLElement)
+    const startGeometry = buildImageGeometry({
+      naturalWidth: this.naturalWidth || this.img.naturalWidth || 1,
+      naturalHeight: this.naturalHeight || this.img.naturalHeight || 1,
+      rotation: this.node.attrs.rotation,
+      storedWidth: this.node.attrs.width,
+      editorContentWidth: contentWidth,
+    })
+    const startVisibleWidth = startGeometry.visibleWidth
 
     const onMouseMove = (moveEvent: MouseEvent) => {
       const currentX = moveEvent.pageX
-      const newWidth = Math.max(50, startWidth + (currentX - startX))
-      this.img.style.width = `${newWidth}px`
+      const targetVisibleWidth = Math.max(MIN_IMAGE_WIDTH_PX, startVisibleWidth + (currentX - startX))
+      const nextBaseWidth = getBaseWidthForVisibleTarget({
+        editorContentWidth: contentWidth,
+        naturalWidth: this.naturalWidth || this.img.naturalWidth || 1,
+        naturalHeight: this.naturalHeight || this.img.naturalHeight || 1,
+        rotation: this.node.attrs.rotation,
+        targetVisibleWidth,
+      })
+      applyImageLayout(
+        this.dom,
+        this.img,
+        { ...this.node.attrs, width: nextBaseWidth },
+        this.naturalWidth || this.img.naturalWidth || 1,
+        this.naturalHeight || this.img.naturalHeight || 1,
+        contentWidth
+      )
     }
 
     const onMouseUp = (upEvent: MouseEvent) => {
@@ -229,11 +554,79 @@ class ImageNodeView {
       const pos = this.getPos()
       if (typeof pos === "number") {
         const currentX = upEvent.pageX
-        const newWidth = Math.max(50, startWidth + (currentX - startX))
-        
+        const targetVisibleWidth = Math.max(MIN_IMAGE_WIDTH_PX, startVisibleWidth + (currentX - startX))
+        const newWidth = getBaseWidthForVisibleTarget({
+          editorContentWidth: contentWidth,
+          naturalWidth: this.naturalWidth || this.img.naturalWidth || 1,
+          naturalHeight: this.naturalHeight || this.img.naturalHeight || 1,
+          rotation: this.node.attrs.rotation,
+          targetVisibleWidth,
+        })
+
         const tr = this.view.state.tr.setNodeMarkup(pos, null, {
           ...this.node.attrs,
-          width: newWidth
+          width: newWidth,
+        })
+        this.view.dispatch(tr)
+      }
+    }
+
+    document.addEventListener("mousemove", onMouseMove)
+    document.addEventListener("mouseup", onMouseUp)
+  }
+
+  onHeightMouseDown(e: MouseEvent) {
+    e.preventDefault()
+    const startY = e.pageY
+    const contentWidth = getEditorContentWidth(this.view.dom as HTMLElement)
+    const startGeometry = buildImageGeometry({
+      naturalWidth: this.naturalWidth || this.img.naturalWidth || 1,
+      naturalHeight: this.naturalHeight || this.img.naturalHeight || 1,
+      rotation: this.node.attrs.rotation,
+      storedWidth: this.node.attrs.width,
+      editorContentWidth: contentWidth,
+    })
+    const startVisibleHeight = startGeometry.visibleHeight
+
+    const onMouseMove = (moveEvent: MouseEvent) => {
+      const currentY = moveEvent.pageY
+      const targetVisibleHeight = Math.max(MIN_IMAGE_WIDTH_PX, startVisibleHeight + (currentY - startY))
+      const nextBaseWidth = getBaseWidthForVisibleHeightTarget({
+        editorContentWidth: contentWidth,
+        naturalWidth: this.naturalWidth || this.img.naturalWidth || 1,
+        naturalHeight: this.naturalHeight || this.img.naturalHeight || 1,
+        rotation: this.node.attrs.rotation,
+        targetVisibleHeight,
+      })
+      applyImageLayout(
+        this.dom,
+        this.img,
+        { ...this.node.attrs, width: nextBaseWidth },
+        this.naturalWidth || this.img.naturalWidth || 1,
+        this.naturalHeight || this.img.naturalHeight || 1,
+        contentWidth
+      )
+    }
+
+    const onMouseUp = (upEvent: MouseEvent) => {
+      document.removeEventListener("mousemove", onMouseMove)
+      document.removeEventListener("mouseup", onMouseUp)
+
+      const pos = this.getPos()
+      if (typeof pos === "number") {
+        const currentY = upEvent.pageY
+        const targetVisibleHeight = Math.max(MIN_IMAGE_WIDTH_PX, startVisibleHeight + (currentY - startY))
+        const newWidth = getBaseWidthForVisibleHeightTarget({
+          editorContentWidth: contentWidth,
+          naturalWidth: this.naturalWidth || this.img.naturalWidth || 1,
+          naturalHeight: this.naturalHeight || this.img.naturalHeight || 1,
+          rotation: this.node.attrs.rotation,
+          targetVisibleHeight,
+        })
+
+        const tr = this.view.state.tr.setNodeMarkup(pos, null, {
+          ...this.node.attrs,
+          width: newWidth,
         })
         this.view.dispatch(tr)
       }
@@ -251,7 +644,9 @@ class ImageNodeView {
   }
 
   destroy() {
-    this.handle.removeEventListener("mousedown", this.onMouseDown)
+    this.widthHandle.removeEventListener("mousedown", this.onWidthMouseDown)
+    this.heightHandle.removeEventListener("mousedown", this.onHeightMouseDown)
+    this.img.removeEventListener("load", this.onImageLoad)
   }
 }
 
@@ -572,6 +967,7 @@ function applyFontFamily(view: EditorView, family: string | null) {
 }
 
 export function ProCollaborativeEditor({
+  projectId,
   documentId,
   user,
   accessRole = "EDITOR",
@@ -591,10 +987,12 @@ export function ProCollaborativeEditor({
   const previousStatusRef = useRef<string | null>(null)
   const [status, setStatus] = useState("connecting")
   const [isEaModalOpen, setIsEaModalOpen] = useState(false)
+  const [fullscreenImage, setFullscreenImage] = useState<ImageNodeAttrs | null>(null)
   const [pageCount, setPageCount] = useState(1)
   const [currentTextColor, setCurrentTextColor] = useState<string | null>(null)
   const [currentFontSize, setCurrentFontSize] = useState<string | null>(null)
   const [currentFontFamily, setCurrentFontFamily] = useState<string | null>(null)
+  const [selectedImage, setSelectedImage] = useState<SelectedImageState | null>(null)
   const outlineStateRef = useRef<DocumentOutlineHeading[]>([])
 
   const onOutlineChangeRef = useRef(onOutlineChange)
@@ -670,10 +1068,71 @@ export function ProCollaborativeEditor({
 
   const editable = accessRole === "EDITOR"
 
+  const syncSelectedImage = () => {
+    const nextSelectedImage = getSelectedImageState(editorViewRef.current)
+    setSelectedImage((current) => {
+      if (!nextSelectedImage && !current) return current
+      if (!nextSelectedImage || !current) return nextSelectedImage
+
+      const hasSameRect =
+        current.rect.top === nextSelectedImage.rect.top &&
+        current.rect.left === nextSelectedImage.rect.left &&
+        current.rect.width === nextSelectedImage.rect.width &&
+        current.rect.height === nextSelectedImage.rect.height
+
+      const hasSameAttrs =
+        current.pos === nextSelectedImage.pos &&
+        current.attrs.align === nextSelectedImage.attrs.align &&
+        current.attrs.rotation === nextSelectedImage.attrs.rotation &&
+        current.attrs.width === nextSelectedImage.attrs.width &&
+        current.attrs.src === nextSelectedImage.attrs.src &&
+        current.attrs.title === nextSelectedImage.attrs.title
+
+      if (hasSameRect && hasSameAttrs) {
+        return current
+      }
+
+      return nextSelectedImage
+    })
+  }
+
+  const updateImageNodeAttrs = (pos: number, updater: (attrs: ImageNodeAttrs, maxWidth: number) => ImageNodeAttrs) => {
+    const view = editorViewRef.current
+    if (!view) return
+
+    const node = view.state.doc.nodeAt(pos)
+    if (!node || node.type.name !== "image") return
+
+    const maxWidth = getEditorContentWidth(view.dom as HTMLElement)
+    const nextAttrs = updater(node.attrs as ImageNodeAttrs, maxWidth)
+    const tr = view.state.tr.setNodeMarkup(pos, null, nextAttrs)
+    view.dispatch(tr)
+    view.focus()
+  }
+
+  const openSelectedImageFullscreen = () => {
+    if (!selectedImage) return
+    setFullscreenImage(selectedImage.attrs)
+  }
+
   useEffect(() => {
     mountedRef.current = true
     return () => {
       mountedRef.current = false
+    }
+  }, [])
+
+  useEffect(() => {
+    const handleViewportChange = () => {
+      syncSelectedImage()
+    }
+
+    window.addEventListener("resize", handleViewportChange)
+    window.addEventListener("scroll", handleViewportChange, true)
+
+    return () => {
+      window.removeEventListener("resize", handleViewportChange)
+      window.removeEventListener("scroll", handleViewportChange, true)
     }
   }, [])
 
@@ -837,6 +1296,11 @@ export function ProCollaborativeEditor({
           setCurrentTextColor(getCurrentTextColor(nextState))
           setCurrentFontSize(getCurrentFontSize(nextState))
           setCurrentFontFamily(getCurrentFontFamily(nextState))
+          setTimeout(() => {
+            if (mountedRef.current) {
+              syncSelectedImage()
+            }
+          }, 0)
           if (transaction.docChanged) {
             applyHeadingNumbering(this, outlineStateRef.current)
           }
@@ -902,6 +1366,7 @@ export function ProCollaborativeEditor({
       resizeObserver.disconnect()
       editorViewRef.current?.destroy()
       editorViewRef.current = null
+      setSelectedImage(null)
       provider.destroy()
       ydoc.destroy()
       container.innerHTML = ""
@@ -928,320 +1393,225 @@ export function ProCollaborativeEditor({
       >
         <div className="flex flex-wrap items-center justify-center gap-2">
           <div className="flex flex-wrap items-center justify-center gap-1">
-          <ToolbarButton
-            disabled={!editable}
-            onClick={() =>
-              runCommand((view) => {
-                toggleMark(documentSchema.marks.strong)(view.state, view.dispatch)
-              })
-            }
-          >
-            <Bold className="h-4 w-4" />
-          </ToolbarButton>
-          <ToolbarButton
-            disabled={!editable}
-            onClick={() =>
-              runCommand((view) => {
-                toggleMark(documentSchema.marks.em)(view.state, view.dispatch)
-              })
-            }
-          >
-            <Italic className="h-4 w-4" />
-          </ToolbarButton>
-          <ToolbarButton
-            disabled={!editable}
-            onClick={() =>
-              runCommand((view) => {
-                ;(setBlockType as unknown as (nodeType: unknown, attrs?: unknown) => (state: unknown, dispatch?: unknown) => boolean)(
-                  documentSchema.nodes.heading,
-                  { level: 1 }
-                )(view.state, view.dispatch)
-              })
-            }
-          >
-            <Heading1 className="h-4 w-4" />
-          </ToolbarButton>
-          <ToolbarButton
-            disabled={!editable}
-            onClick={() =>
-              runCommand((view) => {
-                ;(setBlockType as unknown as (nodeType: unknown, attrs?: unknown) => (state: unknown, dispatch?: unknown) => boolean)(
-                  documentSchema.nodes.heading,
-                  { level: 2 }
-                )(view.state, view.dispatch)
-              })
-            }
-          >
-            <Heading2 className="h-4 w-4" />
-          </ToolbarButton>
-          <ToolbarButton
-            disabled={!editable}
-            onClick={() =>
-              runCommand((view) => {
-                ;(setBlockType as unknown as (nodeType: unknown, attrs?: unknown) => (state: unknown, dispatch?: unknown) => boolean)(
-                  documentSchema.nodes.heading,
-                  { level: 3 }
-                )(view.state, view.dispatch)
-              })
-            }
-          >
-            <Heading3 className="h-4 w-4" />
-          </ToolbarButton>
-          <div className="mx-1 flex items-center gap-1 rounded-full border border-gray-200 bg-gray-50 px-2 py-1 dark:border-gray-800 dark:bg-gray-900">
-            <ToolbarButton
-              disabled={!editable}
-              onClick={() => colorInputRef.current?.click()}
-              title="Cambiar color del texto"
-            >
-              <Palette className="h-4 w-4" style={{ color: currentTextColor ?? undefined }} />
-            </ToolbarButton>
-            {TEXT_COLOR_SWATCHES.map((color) => (
-              <button
-                key={color}
-                type="button"
-                aria-label={`Aplicar color ${color}`}
-                className={`h-5 w-5 rounded-full border transition-transform hover:scale-105 ${
-                  currentTextColor === color
-                    ? "border-gray-900 ring-2 ring-offset-1 dark:border-white dark:ring-gray-300"
-                    : "border-white/70 dark:border-gray-800"
-                }`}
-                style={{ backgroundColor: color }}
-                disabled={!editable}
-                onClick={() =>
-                  runCommand((view) => {
-                    applyTextColor(view, color)
-                    setCurrentTextColor(color)
-                  })
-                }
-              />
-            ))}
             <ToolbarButton
               disabled={!editable}
               onClick={() =>
                 runCommand((view) => {
-                  applyTextColor(view, null)
-                  setCurrentTextColor(null)
+                  toggleMark(documentSchema.marks.strong)(view.state, view.dispatch)
                 })
               }
-              title="Quitar color del texto"
             >
-              <Eraser className="h-4 w-4 text-gray-600 dark:text-gray-300" />
+              <Bold className="h-4 w-4" />
             </ToolbarButton>
-            <input
-              ref={colorInputRef}
-              type="color"
-              className="sr-only"
-              value={currentTextColor ?? "#1D4ED8"}
-              onChange={(event) =>
+            <ToolbarButton
+              disabled={!editable}
+              onClick={() =>
                 runCommand((view) => {
-                  applyTextColor(view, event.target.value)
-                  setCurrentTextColor(event.target.value)
-                })
-              }
-            />
-          </div>
-          <div className="mx-1 flex items-center gap-2 rounded-full border border-gray-200 bg-gray-50 px-2 py-1 dark:border-gray-800 dark:bg-gray-900">
-            <span className="text-[11px] font-semibold uppercase tracking-[0.12em] text-gray-500 dark:text-gray-400">
-              Tamaño
-            </span>
-            <Select
-              value={currentFontSize ?? "default"}
-              onValueChange={(value) =>
-                runCommand((view) => {
-                  const nextSize = value === "default" ? null : value
-                  applyFontSize(view, nextSize)
-                  setCurrentFontSize(nextSize)
+                  toggleMark(documentSchema.marks.em)(view.state, view.dispatch)
                 })
               }
             >
-              <SelectTrigger className="h-8 w-[92px] border-gray-200 bg-white px-2 text-xs dark:border-gray-700 dark:bg-gray-950">
-                <SelectValue placeholder="Base" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="default">Base</SelectItem>
-                {FONT_SIZE_OPTIONS.map((option) => (
-                  <SelectItem key={option.value} value={option.value}>
-                    {option.label}px
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="mx-1 flex items-center gap-2 rounded-full border border-gray-200 bg-gray-50 px-2 py-1 dark:border-gray-800 dark:bg-gray-900">
-            <span className="text-[11px] font-semibold uppercase tracking-[0.12em] text-gray-500 dark:text-gray-400">
-              Fuente
-            </span>
-            <Select
-              value={currentFontFamily ?? "default"}
-              onValueChange={(value) =>
+              <Italic className="h-4 w-4" />
+            </ToolbarButton>
+            <ToolbarButton
+              disabled={!editable}
+              onClick={() =>
                 runCommand((view) => {
-                  const nextFamily = value === "default" ? null : value
-                  applyFontFamily(view, nextFamily)
-                  setCurrentFontFamily(nextFamily)
+                  ;(setBlockType as unknown as (nodeType: unknown, attrs?: unknown) => (state: unknown, dispatch?: unknown) => boolean)(
+                    documentSchema.nodes.heading,
+                    { level: 1 }
+                  )(view.state, view.dispatch)
                 })
               }
             >
-              <SelectTrigger className="h-8 w-[146px] border-gray-200 bg-white px-2 text-xs dark:border-gray-700 dark:bg-gray-950">
-                <SelectValue placeholder="Base" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="default">Base</SelectItem>
-                {FONT_FAMILY_OPTIONS.map((option) => (
-                  <SelectItem key={option.value} value={option.value}>
-                    {option.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <ToolbarButton
-            disabled={!editable}
-            onClick={() =>
-              runCommand((view) => {
-                wrapInList(documentSchema.nodes.bullet_list)(view.state, view.dispatch)
-              })
-            }
-          >
-            <List className="h-4 w-4" />
-          </ToolbarButton>
-          <ToolbarButton
-            disabled={!editable}
-            onClick={() =>
-              runCommand((view) => {
-                wrapInList(documentSchema.nodes.ordered_list)(view.state, view.dispatch)
-              })
-            }
-          >
-            <ListOrdered className="h-4 w-4" />
-          </ToolbarButton>
-          <ToolbarButton
-            disabled={!editable}
-            onClick={() =>
-              runCommand((view) => {
-                ;(undo as unknown as (state: unknown, dispatch?: unknown) => boolean)(
-                  view.state,
-                  view.dispatch
-                )
-              })
-            }
-          >
-            <Undo2 className="h-4 w-4" />
-          </ToolbarButton>
-          <ToolbarButton
-            disabled={!editable}
-            onClick={() =>
-              runCommand((view) => {
-                ;(redo as unknown as (state: unknown, dispatch?: unknown) => boolean)(
-                  view.state,
-                  view.dispatch
-                )
-              })
-            }
-          >
-            <Redo2 className="h-4 w-4" />
-          </ToolbarButton>
-          <ToolbarButton
-            disabled={!editable}
-            onClick={() => setIsEaModalOpen(true)}
-            title="Generar Diagrama EA"
-          >
-            <Network className="h-4 w-4 text-blue-600" />
-          </ToolbarButton>
-          <ToolbarButton
-            disabled={!editable}
-            onClick={() =>
-              runCommand((view) => {
-                const { state, dispatch } = view
-                const { selection } = state
-                const nodeSelection = selection as any
-                
-                if (nodeSelection.node && nodeSelection.node.type.name === "image") {
-                  const currentRotation = nodeSelection.node.attrs.rotation || 0
-                  const newRotation = (currentRotation + 90) % 360
-                  const tr = state.tr.setNodeMarkup(selection.from, null, {
-                    ...nodeSelection.node.attrs,
-                    rotation: newRotation
+              <Heading1 className="h-4 w-4" />
+            </ToolbarButton>
+            <ToolbarButton
+              disabled={!editable}
+              onClick={() =>
+                runCommand((view) => {
+                  ;(setBlockType as unknown as (nodeType: unknown, attrs?: unknown) => (state: unknown, dispatch?: unknown) => boolean)(
+                    documentSchema.nodes.heading,
+                    { level: 2 }
+                  )(view.state, view.dispatch)
+                })
+              }
+            >
+              <Heading2 className="h-4 w-4" />
+            </ToolbarButton>
+            <ToolbarButton
+              disabled={!editable}
+              onClick={() =>
+                runCommand((view) => {
+                  ;(setBlockType as unknown as (nodeType: unknown, attrs?: unknown) => (state: unknown, dispatch?: unknown) => boolean)(
+                    documentSchema.nodes.heading,
+                    { level: 3 }
+                  )(view.state, view.dispatch)
+                })
+              }
+            >
+              <Heading3 className="h-4 w-4" />
+            </ToolbarButton>
+            <div className="mx-1 flex items-center gap-1 rounded-full border border-gray-200 bg-gray-50 px-2 py-1 dark:border-gray-800 dark:bg-gray-900">
+              <ToolbarButton
+                disabled={!editable}
+                onClick={() => colorInputRef.current?.click()}
+                title="Cambiar color del texto"
+              >
+                <Palette className="h-4 w-4" style={{ color: currentTextColor ?? undefined }} />
+              </ToolbarButton>
+              {TEXT_COLOR_SWATCHES.map((color) => (
+                <button
+                  key={color}
+                  type="button"
+                  aria-label={`Aplicar color ${color}`}
+                  className={`h-5 w-5 rounded-full border transition-transform hover:scale-105 ${
+                    currentTextColor === color
+                      ? "border-gray-900 ring-2 ring-offset-1 dark:border-white dark:ring-gray-300"
+                      : "border-white/70 dark:border-gray-800"
+                  }`}
+                  style={{ backgroundColor: color }}
+                  disabled={!editable}
+                  onClick={() =>
+                    runCommand((view) => {
+                      applyTextColor(view, color)
+                      setCurrentTextColor(color)
+                    })
+                  }
+                />
+              ))}
+              <ToolbarButton
+                disabled={!editable}
+                onClick={() =>
+                  runCommand((view) => {
+                    applyTextColor(view, null)
+                    setCurrentTextColor(null)
                   })
-                  dispatch(tr)
-                } else {
-                  toast.info("Por favor haz clic sobre una imagen para seleccionarla antes de rotar.")
                 }
-              })
-            }
-            title="Rotar Imagen Seleccionada 90°"
-          >
-            <RotateCw className="h-4 w-4 text-gray-700 dark:text-gray-300" />
-          </ToolbarButton>
-          <div className="w-px h-6 bg-gray-200 dark:bg-gray-800 mx-1" />
-          <ToolbarButton
-            disabled={!editable}
-            onClick={() =>
-              runCommand((view) => {
-                const { state, dispatch } = view
-                const { selection } = state
-                const nodeSelection = selection as any
-                
-                if (nodeSelection.node && nodeSelection.node.type.name === "image") {
-                  const tr = state.tr.setNodeMarkup(selection.from, null, {
-                    ...nodeSelection.node.attrs,
-                    align: "left"
+                title="Quitar color del texto"
+              >
+                <Eraser className="h-4 w-4 text-gray-600 dark:text-gray-300" />
+              </ToolbarButton>
+              <input
+                ref={colorInputRef}
+                type="color"
+                className="sr-only"
+                value={currentTextColor ?? "#1D4ED8"}
+                onChange={(event) =>
+                  runCommand((view) => {
+                    applyTextColor(view, event.target.value)
+                    setCurrentTextColor(event.target.value)
                   })
-                  dispatch(tr)
-                } else {
-                  toast.info("Por favor selecciona una imagen primero.")
                 }
-              })
-            }
-            title="Alinear a la Izquierda"
-          >
-            <AlignLeft className="h-4 w-4 text-gray-700 dark:text-gray-300" />
-          </ToolbarButton>
-          <ToolbarButton
-            disabled={!editable}
-            onClick={() =>
-              runCommand((view) => {
-                const { state, dispatch } = view
-                const { selection } = state
-                const nodeSelection = selection as any
-                
-                if (nodeSelection.node && nodeSelection.node.type.name === "image") {
-                  const tr = state.tr.setNodeMarkup(selection.from, null, {
-                    ...nodeSelection.node.attrs,
-                    align: "center"
+              />
+            </div>
+            <div className="mx-1 flex items-center gap-2 rounded-full border border-gray-200 bg-gray-50 px-2 py-1 dark:border-gray-800 dark:bg-gray-900">
+              <span className="text-[11px] font-semibold uppercase tracking-[0.12em] text-gray-500 dark:text-gray-400">
+                Tamaño
+              </span>
+              <Select
+                value={currentFontSize ?? "default"}
+                onValueChange={(value) =>
+                  runCommand((view) => {
+                    const nextSize = value === "default" ? null : value
+                    applyFontSize(view, nextSize)
+                    setCurrentFontSize(nextSize)
                   })
-                  dispatch(tr)
-                } else {
-                  toast.info("Por favor selecciona una imagen primero.")
                 }
-              })
-            }
-            title="Centrar"
-          >
-            <AlignCenter className="h-4 w-4 text-gray-700 dark:text-gray-300" />
-          </ToolbarButton>
-          <ToolbarButton
-            disabled={!editable}
-            onClick={() =>
-              runCommand((view) => {
-                const { state, dispatch } = view
-                const { selection } = state
-                const nodeSelection = selection as any
-                
-                if (nodeSelection.node && nodeSelection.node.type.name === "image") {
-                  const tr = state.tr.setNodeMarkup(selection.from, null, {
-                    ...nodeSelection.node.attrs,
-                    align: "right"
+              >
+                <SelectTrigger className="h-8 w-[92px] border-gray-200 bg-white px-2 text-xs dark:border-gray-700 dark:bg-gray-950">
+                  <SelectValue placeholder="Base" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="default">Base</SelectItem>
+                  {FONT_SIZE_OPTIONS.map((option) => (
+                    <SelectItem key={option.value} value={option.value}>
+                      {option.label}px
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="mx-1 flex items-center gap-2 rounded-full border border-gray-200 bg-gray-50 px-2 py-1 dark:border-gray-800 dark:bg-gray-900">
+              <span className="text-[11px] font-semibold uppercase tracking-[0.12em] text-gray-500 dark:text-gray-400">
+                Fuente
+              </span>
+              <Select
+                value={currentFontFamily ?? "default"}
+                onValueChange={(value) =>
+                  runCommand((view) => {
+                    const nextFamily = value === "default" ? null : value
+                    applyFontFamily(view, nextFamily)
+                    setCurrentFontFamily(nextFamily)
                   })
-                  dispatch(tr)
-                } else {
-                  toast.info("Por favor selecciona una imagen primero.")
                 }
-              })
-            }
-            title="Alinear a la Derecha"
-          >
-            <AlignRight className="h-4 w-4 text-gray-700 dark:text-gray-300" />
-          </ToolbarButton>
+              >
+                <SelectTrigger className="h-8 w-[146px] border-gray-200 bg-white px-2 text-xs dark:border-gray-700 dark:bg-gray-950">
+                  <SelectValue placeholder="Base" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="default">Base</SelectItem>
+                  {FONT_FAMILY_OPTIONS.map((option) => (
+                    <SelectItem key={option.value} value={option.value}>
+                      {option.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <ToolbarButton
+              disabled={!editable}
+              onClick={() =>
+                runCommand((view) => {
+                  wrapInList(documentSchema.nodes.bullet_list)(view.state, view.dispatch)
+                })
+              }
+            >
+              <List className="h-4 w-4" />
+            </ToolbarButton>
+            <ToolbarButton
+              disabled={!editable}
+              onClick={() =>
+                runCommand((view) => {
+                  wrapInList(documentSchema.nodes.ordered_list)(view.state, view.dispatch)
+                })
+              }
+            >
+              <ListOrdered className="h-4 w-4" />
+            </ToolbarButton>
+            <ToolbarButton
+              disabled={!editable}
+              onClick={() =>
+                runCommand((view) => {
+                  ;(undo as unknown as (state: unknown, dispatch?: unknown) => boolean)(
+                    view.state,
+                    view.dispatch
+                  )
+                })
+              }
+            >
+              <Undo2 className="h-4 w-4" />
+            </ToolbarButton>
+            <ToolbarButton
+              disabled={!editable}
+              onClick={() =>
+                runCommand((view) => {
+                  ;(redo as unknown as (state: unknown, dispatch?: unknown) => boolean)(
+                    view.state,
+                    view.dispatch
+                  )
+                })
+              }
+            >
+              <Redo2 className="h-4 w-4" />
+            </ToolbarButton>
+            <ToolbarButton
+              disabled={!editable}
+              onClick={() => setIsEaModalOpen(true)}
+              title="Generar Diagrama EA"
+            >
+              <Network className="h-4 w-4 text-blue-600" />
+            </ToolbarButton>
           </div>
           <div className="text-xs font-medium text-gray-500 dark:text-gray-400">
             {statusLabel(status, accessRole)}
@@ -1262,18 +1632,167 @@ export function ProCollaborativeEditor({
         </div>
         <div ref={editorContainerRef} className="document-editor-container relative z-10" />
       </div>
-      
-      <EaDiagramModal 
-        isOpen={isEaModalOpen} 
-        onClose={() => setIsEaModalOpen(false)} 
-        onGenerate={(imageUrl) => {
+
+      {selectedImage ? (
+        <div
+          className="fixed z-[115] w-[min(calc(100vw-1rem),44rem)] -translate-x-1/2 -translate-y-full rounded-2xl border border-slate-200 bg-white/95 p-2 shadow-2xl backdrop-blur dark:border-slate-700 dark:bg-slate-950/95"
+          style={{
+            top: Math.max(72, selectedImage.rect.top - 16),
+            left:
+              typeof window === "undefined"
+                ? 24
+                : Math.min(
+                    window.innerWidth - 24,
+                    Math.max(24, selectedImage.rect.left + selectedImage.rect.width / 2)
+                  ),
+          }}
+        >
+          <div className="flex flex-wrap items-center justify-center gap-2">
+            <Button
+              type="button"
+              variant="secondary"
+              size="sm"
+              onClick={() =>
+                updateImageNodeAttrs(selectedImage.pos, (attrs, maxWidth) => ({
+                  ...attrs,
+                  width: getBaseWidthForVisibleTarget({
+                    editorContentWidth: maxWidth,
+                    naturalWidth: selectedImage.naturalWidth || 1,
+                    naturalHeight: selectedImage.naturalHeight || 1,
+                    rotation: attrs.rotation,
+                    targetVisibleWidth: maxWidth * DEFAULT_IMAGE_WIDTH_RATIO,
+                  }),
+                }))
+              }
+              disabled={!editable}
+            >
+              <Scan className="mr-2 h-4 w-4" />
+              Ajustar
+            </Button>
+            {IMAGE_WIDTH_PRESETS.map((preset) => (
+              <Button
+                key={preset.label}
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={() =>
+                  updateImageNodeAttrs(selectedImage.pos, (attrs, maxWidth) => ({
+                    ...attrs,
+                    width: getBaseWidthForVisibleTarget({
+                      editorContentWidth: maxWidth,
+                      naturalWidth: selectedImage.naturalWidth || 1,
+                      naturalHeight: selectedImage.naturalHeight || 1,
+                      rotation: attrs.rotation,
+                      targetVisibleWidth: maxWidth * preset.ratio,
+                    }),
+                  }))
+                }
+                disabled={!editable}
+              >
+                {preset.label}
+              </Button>
+            ))}
+            <div className="h-6 w-px bg-slate-200 dark:bg-slate-700" />
+            <ToolbarButton
+              disabled={!editable}
+              onClick={() =>
+                updateImageNodeAttrs(selectedImage.pos, (attrs) => ({
+                  ...attrs,
+                  align: "left",
+                }))
+              }
+              title="Alinear a la izquierda"
+            >
+              <AlignLeft className="h-4 w-4" />
+            </ToolbarButton>
+            <ToolbarButton
+              disabled={!editable}
+              onClick={() =>
+                updateImageNodeAttrs(selectedImage.pos, (attrs) => ({
+                  ...attrs,
+                  align: "center",
+                }))
+              }
+              title="Centrar"
+            >
+              <AlignCenter className="h-4 w-4" />
+            </ToolbarButton>
+            <ToolbarButton
+              disabled={!editable}
+              onClick={() =>
+                updateImageNodeAttrs(selectedImage.pos, (attrs) => ({
+                  ...attrs,
+                  align: "right",
+                }))
+              }
+              title="Alinear a la derecha"
+            >
+              <AlignRight className="h-4 w-4" />
+            </ToolbarButton>
+            <ToolbarButton
+              disabled={!editable}
+              onClick={() =>
+                updateImageNodeAttrs(selectedImage.pos, (attrs) => ({
+                  ...attrs,
+                  rotation: ((attrs.rotation || 0) + 90) % 360,
+                }))
+              }
+              title="Rotar 90°"
+            >
+              <RotateCw className="h-4 w-4" />
+            </ToolbarButton>
+            <ToolbarButton
+              disabled={!editable}
+              onClick={() =>
+                updateImageNodeAttrs(selectedImage.pos, (attrs, maxWidth) => ({
+                  ...attrs,
+                  width: getBaseWidthForVisibleTarget({
+                    editorContentWidth: maxWidth,
+                    naturalWidth: selectedImage.naturalWidth || 1,
+                    naturalHeight: selectedImage.naturalHeight || 1,
+                    rotation: 0,
+                    targetVisibleWidth: maxWidth * DEFAULT_IMAGE_WIDTH_RATIO,
+                  }),
+                  align: "center",
+                  rotation: 0,
+                }))
+              }
+              title="Reset"
+            >
+              <Maximize className="h-4 w-4" />
+            </ToolbarButton>
+            <ToolbarButton onClick={openSelectedImageFullscreen} title="Pantalla completa">
+              <Expand className="h-4 w-4" />
+            </ToolbarButton>
+          </div>
+        </div>
+      ) : null}
+
+      <EaDiagramModal
+        isOpen={isEaModalOpen}
+        projectId={projectId}
+        documentId={documentId}
+        onClose={() => setIsEaModalOpen(false)}
+        onGenerate={(diagram) => {
           runCommand((view) => {
             const { state, dispatch } = view
-            const imageNode = documentSchema.nodes.image.create({ src: imageUrl, alt: "Diagrama EA" })
+            const imageNode = documentSchema.nodes.image.create({
+              src: diagram.url,
+              alt: diagram.title || "Diagrama EA",
+              title: diagram.title || "Diagrama EA",
+            })
             const tr = state.tr.replaceSelectionWith(imageNode)
             dispatch(tr)
           })
         }}
+      />
+      <ImageViewerModal
+        isOpen={Boolean(fullscreenImage)}
+        src={fullscreenImage?.src ?? null}
+        alt={fullscreenImage?.alt}
+        title={fullscreenImage?.title ?? fullscreenImage?.alt ?? "Imagen del documento"}
+        subtitle="Imagen del documento"
+        onClose={() => setFullscreenImage(null)}
       />
     </div>
   )

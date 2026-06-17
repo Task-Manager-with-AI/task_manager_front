@@ -39,6 +39,7 @@ import {
   useCreateSuggestion,
   useDeleteDocumentAsset,
   useDocument,
+  useDocumentDiagrams,
   useDocumentAssets,
   useDocumentVersions,
   useResolveSuggestion,
@@ -86,6 +87,7 @@ export default function DocumentEditorPage() {
   const { mutateAsync: updateDocument, isPending: isSaving } = useUpdateDocument()
   const { mutateAsync: uploadAsset, isPending: isUploading } = useUploadDocumentAsset(documentId)
   const { data: assets, isLoading: isAssetsLoading } = useDocumentAssets(documentId)
+  const { data: diagrams } = useDocumentDiagrams(documentId)
   const { mutateAsync: deleteAsset, isPending: isDeletingAsset } = useDeleteDocumentAsset(documentId)
   const { data: commentThreads } = useCommentThreads(documentId, true)
   const { mutateAsync: createThread, isPending: isCreatingThread } = useCreateCommentThread(documentId)
@@ -834,6 +836,7 @@ export default function DocumentEditorPage() {
                 <>
                   {useProEditor ? (
                     <ProCollaborativeEditor
+                      projectId={document.projectId}
                       documentId={documentId}
                       user={editorUser}
                       accessRole={accessRole}
@@ -893,6 +896,7 @@ export default function DocumentEditorPage() {
               isRestoringVersion={isRestoringVersion}
               selectedVersionId={selectedVersionId}
               onSelectVersion={setSelectedVersionId}
+              diagrams={diagrams ?? []}
             />
           </div>
         </div>

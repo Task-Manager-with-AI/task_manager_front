@@ -26,11 +26,13 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import { useTranslation } from "@/components/locale-provider"
+import { DiagramGallery } from "@/features/documents/components/DiagramGallery"
 import { useProject } from "@/features/projects/projects.hooks"
 import { documentsLogger, toShortErrorMessage } from "@/features/documents/documents.logger"
 import {
   useCreateDocument,
   useDeleteDocument,
+  useProjectDiagrams,
   useProjectDocuments,
 } from "@/features/documents/documents.hooks"
 
@@ -40,6 +42,7 @@ export default function ProjectDocumentsPage() {
   const { t } = useTranslation()
   const { data: project } = useProject(projectId)
   const { data: documents, isLoading } = useProjectDocuments(projectId)
+  const { data: diagrams, isLoading: isLoadingDiagrams } = useProjectDiagrams(projectId)
   const { mutateAsync: createDocument, isPending: isCreating } = useCreateDocument(projectId)
   const { mutate: deleteDocument, isPending: isDeleting } = useDeleteDocument(projectId)
   const [isDialogOpen, setIsDialogOpen] = useState(false)
@@ -252,6 +255,19 @@ export default function ProjectDocumentsPage() {
           </Table>
         </div>
       )}
+
+      <div className="mt-8">
+        {isLoadingDiagrams ? (
+          <Skeleton className="h-64 w-full" />
+        ) : (
+          <DiagramGallery
+            diagrams={diagrams ?? []}
+            title="Galería de Diagramas"
+            emptyMessage="Los diagramas que generes desde este proyecto o sus documentos aparecerán aquí."
+            className="rounded-2xl border border-slate-200 bg-slate-50/80 p-5 dark:border-slate-800 dark:bg-slate-900/40"
+          />
+        )}
+      </div>
     </div>
   )
 }

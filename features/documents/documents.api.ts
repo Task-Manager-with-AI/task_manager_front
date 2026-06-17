@@ -10,6 +10,8 @@ import type {
   DocumentPermission,
   DocumentSuggestion,
   DocumentVersion,
+  GeneratedDiagram,
+  DiagramType,
   ProjectDocument,
   UpdateDocumentDto,
 } from "./documents.types"
@@ -105,9 +107,35 @@ export const documentsApi = {
     withApiLog("documents.create", { projectId }, () =>
       apiClient.post<ProjectDocument>(`/projects/${projectId}/documents`, dto)
     ),
+  createDiagram: (
+    projectId: string,
+    dto: {
+      prompt: string
+      diagram_type: DiagramType
+      documentId?: string
+      title?: string
+    }
+  ) =>
+    withApiLog("diagrams.create", { projectId, documentId: dto.documentId, status: dto.diagram_type }, async () =>
+      normalizeDiagram(
+        await apiClient.post<any>(`/projects/${projectId}/diagrams`, dto)
+      )
+    ),
+  listProjectDiagrams: (projectId: string) =>
+    withApiLog("diagrams.listByProject", { projectId }, async () =>
+      normalizeDiagrams(
+        await apiClient.get<any[]>(`/projects/${projectId}/diagrams`)
+      )
+    ),
   get: (documentId: string) =>
     withApiLog("documents.get", { documentId }, () =>
       apiClient.get<ProjectDocument>(`/documents/${documentId}`)
+    ),
+  listDocumentDiagrams: (documentId: string) =>
+    withApiLog("diagrams.listByDocument", { documentId }, async () =>
+      normalizeDiagrams(
+        await apiClient.get<any[]>(`/documents/${documentId}/diagrams`)
+      )
     ),
   update: (documentId: string, dto: UpdateDocumentDto) =>
     withApiLog("documents.update", { documentId }, () =>
@@ -269,4 +297,25 @@ export const documentsApi = {
     })
     return `${BASE}/documents/${documentId}/assets/${assetId}`
   },
+}
+
+function normalizeDiagrams(diagrams: any[]): GeneratedDiagram[] {
+  return diagrams.map(normalizeDiagram)
+}
+
+function normalizeDiagram(diagram: any): GeneratedDiagram {
+  return {
+    id: diagram.id,
+    projectId: diagram.projectId,
+    documentId: diagram.documentId ?? null,
+    title: diagram.title,
+    diagramType: diagram.diagramType,
+    prompt: diagram.prompt ?? null,
+    url: diagram.publicUrl ?? diagram.url,
+    createdAt: diagram.createdAt,
+    updatedAt: diagram.updatedAt,
+    createdById: diagram.createdById,
+    createdBy: diagram.createdBy,
+    document: diagram.document ?? null,
+  }
 }
