@@ -29,6 +29,7 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { documentsLogger } from "./documents.logger"
+import { fetchCollaborationToken } from "./collaboration-auth"
 import type { DocumentOutlineHeading, DocumentPermissionRole } from "./documents.types"
 import { EaDiagramModal } from "./components/EaDiagramModal"
 import { ImageViewerModal } from "./components/ImageViewerModal"
@@ -1149,26 +1150,50 @@ export function ProCollaborativeEditor({
     const container = editorContainerRef.current
     if (!container) return
 
-    if (mountedRef.current) {
-      setStatus("connecting")
-      previousStatusRef.current = "connecting"
-    }
+    let cancelled = false
+    let provider: HocuspocusProvider | null = null
+    let ydoc: Y.Doc | null = null
+    let resizeObserver: ResizeObserver | null = null
 
-    documentsLogger.info({
-      event: "proEditor:init",
-      scope: "editor",
-      documentId,
-      status: accessRole,
-    })
+    void (async () => {
+      if (mountedRef.current) {
+        setStatus("connecting")
+        previousStatusRef.current = "connecting"
+      }
 
-    container.innerHTML = ""
+      documentsLogger.info({
+        event: "proEditor:init",
+        scope: "editor",
+        documentId,
+        status: accessRole,
+      })
 
-    const ydoc = new Y.Doc()
-    const provider = new HocuspocusProvider({
-      url: getCollaborationUrl(),
-      name: `document:${documentId}`,
-      document: ydoc,
-      token: "",
+      container.innerHTML = ""
+
+      let collabToken = ""
+      try {
+        collabToken = await fetchCollaborationToken()
+      } catch (error) {
+        documentsLogger.warn({
+          event: "proEditor:tokenFetchFailed",
+          scope: "editor",
+          documentId,
+          message: error instanceof Error ? error.message : "token fetch failed",
+        })
+        if (mountedRef.current) {
+          setStatus("forbidden")
+        }
+        return
+      }
+
+      if (cancelled) return
+
+      ydoc = new Y.Doc()
+      provider = new HocuspocusProvider({
+        url: getCollaborationUrl(),
+        name: `document:${documentId}`,
+        document: ydoc,
+        token: collabToken,
       onStatus: ({ status: nextStatus }) => {
         if (mountedRef.current) {
           setStatus(nextStatus)
@@ -1204,9 +1229,11 @@ export function ProCollaborativeEditor({
       },
     })
 
+    const collabProvider = provider
+
     const type = ydoc.getXmlFragment("prosemirror")
 
-    const awareness = provider.awareness
+    const awareness = collabProvider.awareness
     const plugins = [
       ySyncPlugin(type),
       yUndoPlugin(),
@@ -1316,15 +1343,15 @@ export function ProCollaborativeEditor({
       },
     })
 
-    provider.awareness?.setLocalStateField("user", {
+    collabProvider.awareness?.setLocalStateField("user", {
       id: user.id,
       name: user.name,
       color: stableUserColor(user.id),
     })
 
-    provider.awareness?.on("change", () => {
+    collabProvider.awareness?.on("change", () => {
       if (!mountedRef.current) return
-      const states = Array.from(provider.awareness?.getStates().values() ?? [])
+      const states = Array.from(collabProvider.awareness?.getStates().values() ?? [])
       const users = states.map((s: any) => s.user).filter(Boolean)
       const uniqueUsers = Array.from(new Map(users.map((u) => [u.id, u])).values())
       onActiveUsersChangeRef.current?.(uniqueUsers)
@@ -1343,7 +1370,7 @@ export function ProCollaborativeEditor({
 
     syncPageCount()
 
-    const resizeObserver = new ResizeObserver(() => {
+    resizeObserver = new ResizeObserver(() => {
       syncPageCount()
     })
     resizeObserver.observe(editorElement)
@@ -1361,14 +1388,16 @@ export function ProCollaborativeEditor({
         console.error("Error extracting initial headings:", error)
       }
     }
+    })()
 
     return () => {
-      resizeObserver.disconnect()
+      cancelled = true
+      resizeObserver?.disconnect()
       editorViewRef.current?.destroy()
       editorViewRef.current = null
       setSelectedImage(null)
-      provider.destroy()
-      ydoc.destroy()
+      provider?.destroy()
+      ydoc?.destroy()
       container.innerHTML = ""
       documentsLogger.info({
         event: "proEditor:destroy",
@@ -1829,8 +1858,8 @@ function getCollaborationUrl() {
 
   const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000/api/v1"
   const backendUrl = apiUrl.replace(/\/api\/v1\/?$/, "")
-  const wsUrl = backendUrl.replace(/^http/, "ws")
-  return `${wsUrl.replace(/:(\d+)(\/?)$/, (_match, port) => `:${Number(port) + 1}`)}/collaboration`
+  const wsUrl = backendUrl.replace(/^https/, "wss").replace(/^http/, "ws")
+  return `${wsUrl}/collaboration`
 }
 
 function stableUserColor(userId: string) {

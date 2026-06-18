@@ -1,12 +1,8 @@
 "use client"
 
 import { useEffect, useRef, useState } from "react"
-import { io, Socket } from "socket.io-client"
-
-const SOCKET_URL = (process.env.NEXT_PUBLIC_API_URL ?? "").replace(
-  /\/api\/v1\/?$/,
-  ""
-)
+import type { Socket } from "socket.io-client"
+import { connectRealtimeSocket } from "@/lib/realtime-socket"
 
 export interface RemoteParticipant {
   userId: string
@@ -41,61 +37,72 @@ export function useSignaling(options: UseSignalingOptions) {
   useEffect(() => {
     if (!options.enabled || !options.meetingId) return
 
-    const socketOpts = {
-      path: "/socket.io",
-      withCredentials: true,
-      transports: ["websocket", "polling"],
-    }
-    const socket = SOCKET_URL ? io(SOCKET_URL, socketOpts) : io(socketOpts)
-    socketRef.current = socket
+    let socket: Socket | null = null
+    let cancelled = false
 
-    socket.on("connect", () => {
-      setConnected(true)
-      setError(null)
-      socket.emit("meeting:join", { meetingId: options.meetingId })
-    })
+    void (async () => {
+      try {
+        socket = await connectRealtimeSocket()
+        if (cancelled) {
+          socket.disconnect()
+          return
+        }
 
-    socket.on("disconnect", () => setConnected(false))
+        socketRef.current = socket
 
-    socket.on("connect_error", (err) => {
-      setError(err.message || "Connection error")
-    })
+        socket.on("connect", () => {
+          setConnected(true)
+          setError(null)
+          socket?.emit("meeting:join", { meetingId: options.meetingId })
+        })
 
-    socket.on("meeting:error", (payload: { message: string }) => {
-      setError(payload.message)
-    })
+        socket.on("disconnect", () => setConnected(false))
 
-    socket.on("meeting:room-state", (payload: { participants: RemoteParticipant[] }) => {
-      optsRef.current.onRoomState?.(payload.participants)
-    })
+        socket.on("connect_error", (err) => {
+          setError(err.message || "Connection error")
+        })
 
-    socket.on("meeting:participant-joined", (payload: RemoteParticipant) => {
-      optsRef.current.onParticipantJoined?.(payload)
-    })
+        socket.on("meeting:error", (payload: { message: string }) => {
+          setError(payload.message)
+        })
 
-    socket.on("meeting:participant-left", (payload: { userId: string }) => {
-      optsRef.current.onParticipantLeft?.(payload.userId)
-    })
+        socket.on("meeting:room-state", (payload: { participants: RemoteParticipant[] }) => {
+          optsRef.current.onRoomState?.(payload.participants)
+        })
 
-    socket.on("webrtc:offer", (payload) => optsRef.current.onOffer?.(payload))
-    socket.on("webrtc:answer", (payload) => optsRef.current.onAnswer?.(payload))
-    socket.on("webrtc:ice-candidate", (payload) =>
-      optsRef.current.onIceCandidate?.(payload)
-    )
+        socket.on("meeting:participant-joined", (payload: RemoteParticipant) => {
+          optsRef.current.onParticipantJoined?.(payload)
+        })
 
-    socket.on("meeting:processing-started", () =>
-      optsRef.current.onProcessingStarted?.()
-    )
-    socket.on("meeting:minutes-ready", (payload) =>
-      optsRef.current.onMinutesReady?.(payload)
-    )
-    socket.on("meeting:processing-failed", (payload) =>
-      optsRef.current.onProcessingFailed?.(payload)
-    )
+        socket.on("meeting:participant-left", (payload: { userId: string }) => {
+          optsRef.current.onParticipantLeft?.(payload.userId)
+        })
+
+        socket.on("webrtc:offer", (payload) => optsRef.current.onOffer?.(payload))
+        socket.on("webrtc:answer", (payload) => optsRef.current.onAnswer?.(payload))
+        socket.on("webrtc:ice-candidate", (payload) =>
+          optsRef.current.onIceCandidate?.(payload)
+        )
+
+        socket.on("meeting:processing-started", () =>
+          optsRef.current.onProcessingStarted?.()
+        )
+        socket.on("meeting:minutes-ready", (payload) =>
+          optsRef.current.onMinutesReady?.(payload)
+        )
+        socket.on("meeting:processing-failed", (payload) =>
+          optsRef.current.onProcessingFailed?.(payload)
+        )
+      } catch (err) {
+        setConnected(false)
+        setError(err instanceof Error ? err.message : "Connection error")
+      }
+    })()
 
     return () => {
-      socket.emit("meeting:leave", { meetingId: options.meetingId })
-      socket.disconnect()
+      cancelled = true
+      socket?.emit("meeting:leave", { meetingId: options.meetingId })
+      socket?.disconnect()
       socketRef.current = null
       setConnected(false)
     }

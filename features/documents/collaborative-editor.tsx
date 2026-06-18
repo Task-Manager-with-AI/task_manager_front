@@ -22,6 +22,7 @@ import {
 import { Button } from "@/components/ui/button"
 import { useTranslation } from "@/components/locale-provider"
 import { documentsLogger } from "./documents.logger"
+import { fetchCollaborationToken } from "./collaboration-auth"
 
 type CollaborativeEditorProps = {
   documentId: string
@@ -59,12 +60,29 @@ export function CollaborativeEditor({ documentId, user, onActiveUsersChange }: C
     })
 
     const timerId = window.setTimeout(() => {
-      const ydoc = new Y.Doc()
-      const provider = new HocuspocusProvider({
-        url: getCollaborationUrl(),
-        name: `document:${documentId}`,
-        document: ydoc,
-        token: "",
+      void (async () => {
+        let collabToken = ""
+        try {
+          collabToken = await fetchCollaborationToken()
+        } catch {
+          if (isMounted) setStatus("forbidden")
+          documentsLogger.warn({
+            event: "legacyEditor:tokenFetchFailed",
+            scope: "editor",
+            documentId,
+            status: "forbidden",
+          })
+          return
+        }
+
+        if (!isMounted) return
+
+        const ydoc = new Y.Doc()
+        const provider = new HocuspocusProvider({
+          url: getCollaborationUrl(),
+          name: `document:${documentId}`,
+          document: ydoc,
+          token: collabToken,
         onStatus: ({ status: nextStatus }) => {
           if (isMounted) setStatus(nextStatus)
           if (previousStatusRef.current !== nextStatus) {
@@ -95,14 +113,15 @@ export function CollaborativeEditor({ documentId, user, onActiveUsersChange }: C
         },
       })
 
-      currentResources = { ydoc, provider }
+        currentResources = { ydoc, provider }
 
-      if (isMounted) {
-        setResources(currentResources)
-      } else {
-        provider.destroy()
-        ydoc.destroy()
-      }
+        if (isMounted) {
+          setResources(currentResources)
+        } else {
+          provider.destroy()
+          ydoc.destroy()
+        }
+      })()
     }, 0)
 
     return () => {
@@ -327,8 +346,8 @@ function getCollaborationUrl() {
 
   const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000/api/v1"
   const backendUrl = apiUrl.replace(/\/api\/v1\/?$/, "")
-  const wsUrl = backendUrl.replace(/^http/, "ws")
-  return `${wsUrl.replace(/:(\d+)(\/?)$/, (_match, port) => `:${Number(port) + 1}`)}/collaboration`
+  const wsUrl = backendUrl.replace(/^https/, "wss").replace(/^http/, "ws")
+  return `${wsUrl}/collaboration`
 }
 
 function stableUserColor(userId: string) {
