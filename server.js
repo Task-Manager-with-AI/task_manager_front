@@ -15,17 +15,17 @@ const app = next({ dev, hostname, port })
 const handle = app.getRequestHandler()
 const upgradeHandler = app.getUpgradeHandler()
 
-const socketProxy = httpProxy.createProxyServer({
+const backendProxy = httpProxy.createProxyServer({
   target: apiBase,
   ws: true,
   changeOrigin: true,
 })
 
-socketProxy.on("error", (err, req, res) => {
-  console.error("[socket.io proxy]", err.message)
+backendProxy.on("error", (err, req, res) => {
+  console.error("[backend proxy]", err.message)
   if (res && !res.headersSent && typeof res.writeHead === "function") {
     res.writeHead(502)
-    res.end("Socket.IO proxy error")
+    res.end("Backend proxy error")
   }
 })
 
@@ -33,12 +33,20 @@ function isSocketIoRequest(pathname) {
   return pathname === "/socket.io" || pathname.startsWith("/socket.io/")
 }
 
+function isCollaborationRequest(pathname) {
+  return pathname === "/collaboration" || pathname.startsWith("/collaboration/")
+}
+
+function shouldProxyToBackend(pathname) {
+  return isSocketIoRequest(pathname) || isCollaborationRequest(pathname)
+}
+
 app.prepare().then(() => {
   const server = createServer((req, res) => {
     const parsedUrl = parse(req.url, true)
 
-    if (isSocketIoRequest(parsedUrl.pathname)) {
-      socketProxy.web(req, res)
+    if (shouldProxyToBackend(parsedUrl.pathname)) {
+      backendProxy.web(req, res)
       return
     }
 
@@ -48,8 +56,8 @@ app.prepare().then(() => {
   server.on("upgrade", (req, socket, head) => {
     const { pathname } = parse(req.url)
 
-    if (isSocketIoRequest(pathname)) {
-      socketProxy.ws(req, socket, head)
+    if (shouldProxyToBackend(pathname)) {
+      backendProxy.ws(req, socket, head)
       return
     }
 
@@ -59,5 +67,6 @@ app.prepare().then(() => {
   server.listen(port, hostname, () => {
     console.log(`> Ready on http://${hostname}:${port}`)
     console.log(`> Socket.IO proxied to ${apiBase}`)
+    console.log(`> Collaboration proxied to ${apiBase}`)
   })
 })

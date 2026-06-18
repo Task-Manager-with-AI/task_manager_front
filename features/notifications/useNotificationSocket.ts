@@ -2,16 +2,12 @@
 
 import { useEffect, useRef } from "react"
 import { useRouter } from "next/navigation"
-import { io, Socket } from "socket.io-client"
+import type { Socket } from "socket.io-client"
 import { useQueryClient } from "@tanstack/react-query"
 import { toast } from "sonner"
+import { connectRealtimeSocket } from "@/lib/realtime-socket"
 import { notificationKeys } from "./notifications.hooks"
 import type { AppNotification } from "./notifications.types"
-
-const SOCKET_URL = (process.env.NEXT_PUBLIC_API_URL ?? "").replace(
-  /\/api\/v1\/?$/,
-  ""
-)
 
 /**
  * Subscribes to realtime notification events and keeps the React Query cache
@@ -24,41 +20,52 @@ export function useNotificationSocket() {
   const socketRef = useRef<Socket | null>(null)
 
   useEffect(() => {
-    const opts = {
-      path: "/socket.io",
-      withCredentials: true,
-      transports: ["websocket", "polling"],
-    }
-    const socket = SOCKET_URL ? io(SOCKET_URL, opts) : io(opts)
-    socketRef.current = socket
+    let socket: Socket | null = null
+    let cancelled = false
 
-    const refresh = () => {
-      qc.invalidateQueries({ queryKey: notificationKeys.unread })
-      qc.invalidateQueries({ queryKey: ["notifications", "list"] })
-    }
+    void (async () => {
+      try {
+        socket = await connectRealtimeSocket()
+        if (cancelled) {
+          socket.disconnect()
+          return
+        }
 
-    socket.on("notification:new", (n: AppNotification) => {
-      refresh()
-      const url = n.data?.url
-      toast(n.title, {
-        description: n.body ?? undefined,
-        action: url
-          ? { label: "Ver", onClick: () => router.push(url) }
-          : undefined,
-      })
-    })
+        socketRef.current = socket
 
-    socket.on("notification:unread-count", () => {
-      qc.invalidateQueries({ queryKey: notificationKeys.unread })
-    })
+        const refresh = () => {
+          qc.invalidateQueries({ queryKey: notificationKeys.unread })
+          qc.invalidateQueries({ queryKey: ["notifications", "list"] })
+        }
 
-    socket.on("notification:read", () => refresh())
+        socket.on("notification:new", (n: AppNotification) => {
+          refresh()
+          const url = n.data?.url
+          toast(n.title, {
+            description: n.body ?? undefined,
+            action: url
+              ? { label: "Ver", onClick: () => router.push(url) }
+              : undefined,
+          })
+        })
+
+        socket.on("notification:unread-count", () => {
+          qc.invalidateQueries({ queryKey: notificationKeys.unread })
+        })
+
+        socket.on("notification:read", () => refresh())
+      } catch {
+        // Notifications still work via polling; socket is best-effort.
+      }
+    })()
 
     return () => {
-      socket.off("notification:new")
-      socket.off("notification:unread-count")
-      socket.off("notification:read")
-      socket.disconnect()
+      cancelled = true
+      socket?.off("notification:new")
+      socket?.off("notification:unread-count")
+      socket?.off("notification:read")
+      socket?.disconnect()
+      socketRef.current = null
     }
   }, [qc, router])
 }
