@@ -113,6 +113,7 @@ export const documentsApi = {
       prompt: string
       diagram_type: DiagramType
       documentId?: string
+      includeDocumentContext?: boolean
       title?: string
     }
   ) =>

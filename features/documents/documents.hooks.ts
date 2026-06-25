@@ -177,6 +177,7 @@ export function useCreateDiagram(projectId: string, documentId?: string) {
     mutationFn: async (dto: {
       prompt: string
       diagram_type: DiagramType
+      includeDocumentContext?: boolean
       title?: string
     }) => {
       documentsLogger.debug({

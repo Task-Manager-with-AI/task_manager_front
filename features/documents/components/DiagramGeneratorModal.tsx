@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import {
   Dialog,
   DialogContent,
@@ -18,6 +18,7 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
+import { Checkbox } from "@/components/ui/checkbox"
 import { Loader2 } from "lucide-react"
 import { toast } from "sonner"
 import { useCreateDiagram } from "../documents.hooks"
@@ -50,10 +51,15 @@ export function DiagramGeneratorModal({
 }: DiagramGeneratorModalProps) {
   const [prompt, setPrompt] = useState("")
   const [diagramType, setDiagramType] = useState<DiagramType>("class")
+  const [includeDocumentContext, setIncludeDocumentContext] = useState(Boolean(documentId))
   const { mutateAsync: createDiagram, isPending: isGenerating } = useCreateDiagram(
     projectId,
     documentId
   )
+
+  useEffect(() => {
+    setIncludeDocumentContext(Boolean(documentId))
+  }, [documentId, isOpen])
 
   const isSequenceDiagram = diagramType === "sequence"
   const isActivityDiagram = diagramType === "activity"
@@ -79,12 +85,13 @@ export function DiagramGeneratorModal({
       : DEFAULT_PLACEHOLDER
 
   const handleGenerate = async () => {
-    if (!prompt.trim()) return
+    if (!prompt.trim() && !includeDocumentContext) return
 
     try {
       const diagram = await createDiagram({
         prompt,
         diagram_type: diagramType,
+        includeDocumentContext,
       })
       onGenerate(diagram)
       setPrompt("")
@@ -133,12 +140,28 @@ export function DiagramGeneratorModal({
               className="resize-none"
             />
           </div>
+          {documentId ? (
+            <label className="flex items-start gap-3 rounded-md border border-border/70 bg-muted/30 p-3 text-sm">
+              <Checkbox
+                checked={includeDocumentContext}
+                onCheckedChange={(checked) => setIncludeDocumentContext(checked === true)}
+                disabled={isGenerating}
+                className="mt-0.5"
+              />
+              <span className="space-y-1">
+                <span className="block font-medium">Incluir contexto del documento</span>
+                <span className="block text-muted-foreground">
+                  Usa el contenido guardado del documento abierto para generar el diagrama.
+                </span>
+              </span>
+            </label>
+          ) : null}
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={onClose} disabled={isGenerating}>
             Cancelar
           </Button>
-          <Button onClick={handleGenerate} disabled={!prompt.trim() || isGenerating}>
+          <Button onClick={handleGenerate} disabled={(!prompt.trim() && !includeDocumentContext) || isGenerating}>
             {isGenerating ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
