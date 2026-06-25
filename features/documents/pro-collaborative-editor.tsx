@@ -31,7 +31,7 @@ import {
 import { documentsLogger } from "./documents.logger"
 import { fetchCollaborationToken } from "./collaboration-auth"
 import type { DocumentOutlineHeading, DocumentPermissionRole } from "./documents.types"
-import { EaDiagramModal } from "./components/EaDiagramModal"
+import { DiagramGeneratorModal } from "./components/DiagramGeneratorModal"
 import { ImageViewerModal } from "./components/ImageViewerModal"
 
 type ProEditorProps = {
@@ -1637,7 +1637,7 @@ export function ProCollaborativeEditor({
             <ToolbarButton
               disabled={!editable}
               onClick={() => setIsEaModalOpen(true)}
-              title="Generar Diagrama EA"
+              title="Generar Diagrama UML"
             >
               <Network className="h-4 w-4 text-blue-600" />
             </ToolbarButton>
@@ -1797,7 +1797,7 @@ export function ProCollaborativeEditor({
         </div>
       ) : null}
 
-      <EaDiagramModal
+      <DiagramGeneratorModal
         isOpen={isEaModalOpen}
         projectId={projectId}
         documentId={documentId}
@@ -1807,8 +1807,8 @@ export function ProCollaborativeEditor({
             const { state, dispatch } = view
             const imageNode = documentSchema.nodes.image.create({
               src: diagram.url,
-              alt: diagram.title || "Diagrama EA",
-              title: diagram.title || "Diagrama EA",
+              alt: diagram.title || "Diagrama UML",
+              title: diagram.title || "Diagrama UML",
             })
             const tr = state.tr.replaceSelectionWith(imageNode)
             dispatch(tr)

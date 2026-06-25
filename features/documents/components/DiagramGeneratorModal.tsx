@@ -23,7 +23,7 @@ import { toast } from "sonner"
 import { useCreateDiagram } from "../documents.hooks"
 import type { DiagramType, GeneratedDiagram } from "../documents.types"
 
-type EaDiagramModalProps = {
+type DiagramGeneratorModalProps = {
   isOpen: boolean
   projectId: string
   documentId?: string
@@ -41,13 +41,13 @@ const COMPONENT_PLACEHOLDER =
 const DEPLOYMENT_PLACEHOLDER =
   "Ejemplo: Navegador del cliente se conecta a un servidor web, este enruta a un app server con API y worker, usa PostgreSQL y se integra con pagos y notificaciones."
 
-export function EaDiagramModal({
+export function DiagramGeneratorModal({
   isOpen,
   projectId,
   documentId,
   onClose,
   onGenerate,
-}: EaDiagramModalProps) {
+}: DiagramGeneratorModalProps) {
   const [prompt, setPrompt] = useState("")
   const [diagramType, setDiagramType] = useState<DiagramType>("class")
   const { mutateAsync: createDiagram, isPending: isGenerating } = useCreateDiagram(
@@ -60,14 +60,14 @@ export function EaDiagramModal({
   const isComponentDiagram = diagramType === "component"
   const isDeploymentDiagram = diagramType === "deployment"
   const description = isSequenceDiagram
-    ? "Describe el flujo de interaccion entre participantes. La Inteligencia Artificial analizara actores, mensajes y fragmentos del escenario para que Enterprise Architect genere el diagrama de secuencia."
+    ? "Describe el flujo de interaccion entre participantes. La Inteligencia Artificial analizara actores, mensajes y fragmentos para generar el diagrama de secuencia con Kroki/PlantUML."
     : isActivityDiagram
-      ? "Describe un flujo de trabajo con inicio, acciones, decisiones, paralelismo y responsables cuando aplique. La Inteligencia Artificial estructurara el proceso para que Enterprise Architect genere el diagrama de actividad."
+      ? "Describe un flujo de trabajo con inicio, acciones, decisiones, paralelismo y responsables cuando aplique. La Inteligencia Artificial estructurara el proceso para generar el diagrama de actividad."
       : isComponentDiagram
-        ? "Describe la arquitectura por componentes, capas y dependencias. La Inteligencia Artificial organizara componentes, sistemas externos e integraciones para que Enterprise Architect genere el diagrama de componentes."
+        ? "Describe la arquitectura por componentes, capas y dependencias. La Inteligencia Artificial organizara componentes, sistemas externos e integraciones para generar el diagrama de componentes."
         : isDeploymentDiagram
-          ? "Describe una escena de infraestructura con cliente, servidor web, app server, base de datos, integraciones y artefactos desplegados. La Inteligencia Artificial organizara el despliegue para que Enterprise Architect genere un diagrama mas visual y legible."
-      : "Describe el diagrama que deseas generar. La Inteligencia Artificial analizara el texto y Enterprise Architect dibujara el modelo."
+          ? "Describe una escena de infraestructura con cliente, servidor web, app server, base de datos, integraciones y artefactos desplegados. La Inteligencia Artificial organizara el despliegue para generar un diagrama mas visual y legible."
+      : "Describe el diagrama que deseas generar. La Inteligencia Artificial analizara el texto y Kroki/PlantUML dibujara el modelo."
   const placeholder = isSequenceDiagram
     ? SEQUENCE_PLACEHOLDER
     : isActivityDiagram
@@ -90,11 +90,11 @@ export function EaDiagramModal({
       setPrompt("")
       onClose()
     } catch (error) {
-      console.error("EA Generation error:", error)
+      console.error("Diagram generation error:", error)
       const errorMessage =
         error instanceof Error && error.message.trim()
           ? error.message
-          : "Hubo un error al conectar con Enterprise Architect."
+          : "Hubo un error al generar el diagrama."
       toast.error(errorMessage)
     }
   }
@@ -103,7 +103,7 @@ export function EaDiagramModal({
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="sm:max-w-[500px]">
         <DialogHeader>
-          <DialogTitle>Generador de Arquitectura (Enterprise Architect)</DialogTitle>
+          <DialogTitle>Generador de Diagramas UML</DialogTitle>
           <DialogDescription>{description}</DialogDescription>
         </DialogHeader>
         <div className="grid gap-4 py-4">
@@ -142,7 +142,7 @@ export function EaDiagramModal({
             {isGenerating ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Generando EA...
+                Generando diagrama...
               </>
             ) : (
               "Generar e Insertar"
