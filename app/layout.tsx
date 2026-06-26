@@ -6,6 +6,7 @@ import { LocaleProvider } from "@/components/locale-provider"
 import { DocumentTitle } from "@/components/document-title"
 import { QueryProvider } from "@/app/query-provider"
 import { Toaster } from "@/components/ui/sonner"
+import { Analytics } from "@vercel/analytics/next"
 
 const inter = Inter({ subsets: ["latin"] })
 
@@ -29,6 +30,7 @@ export default function RootLayout({
             <Toaster richColors position="top-right" />
           </LocaleProvider>
         </ThemeProvider>
+        <Analytics />
       </body>
     </html>
   )
