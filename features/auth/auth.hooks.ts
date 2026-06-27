@@ -32,11 +32,21 @@ export function useLogin() {
 
 export function useRegister() {
   const router = useRouter()
+  const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: (dto: RegisterDto) => authApi.register(dto),
-    onSuccess: (_data, variables) => {
-      router.push(`/verify-email?email=${encodeURIComponent(variables.email)}`)
+    // [DEMO] Email verification is disabled on the backend, so after creating
+    // the account we auto-login (sets the session cookie) and go straight to
+    // the dashboard — no /verify-email screen.
+    // To re-enable: mutationFn: (dto) => authApi.register(dto), and onSuccess
+    // should router.push(`/verify-email?email=${encodeURIComponent(dto.email)}`).
+    mutationFn: async (dto: RegisterDto) => {
+      await authApi.register(dto)
+      return authApi.login({ email: dto.email, password: dto.password })
+    },
+    onSuccess: (user) => {
+      queryClient.setQueryData(["auth", "me"], user)
+      router.push(postLoginPath(user))
     },
   })
 }
