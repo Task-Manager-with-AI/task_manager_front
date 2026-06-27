@@ -82,7 +82,7 @@ export function MessageBubble({
 
   return (
     <div className={`group flex ${isMine ? "justify-end" : "justify-start"}`}>
-      <div className="flex max-w-xs items-end gap-2 lg:max-w-md">
+      <div className="flex max-w-[78%] items-end gap-2 sm:max-w-xs lg:max-w-md">
         {!isMine && (
           <Avatar className="h-8 w-8 shrink-0">
             <AvatarFallback className="bg-gray-200 text-xs text-gray-900 dark:bg-gray-600 dark:text-white">

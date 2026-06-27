@@ -12,11 +12,10 @@ export const MEDIA_ERROR = {
   UNAVAILABLE: "MEDIA_DEVICES_UNAVAILABLE",
 } as const
 
-function getMediaAccessError(): string | null {
-  if (typeof window === "undefined") return null
-  if (!window.isSecureContext) return MEDIA_ERROR.INSECURE_CONTEXT
-  if (!navigator.mediaDevices?.getUserMedia) return MEDIA_ERROR.UNAVAILABLE
-  return null
+export interface DeviceState {
+  hasAudio: boolean
+  hasVideo: boolean
+  mediaWarning: string | null
 }
 
 export interface RemoteStream {
@@ -35,6 +34,53 @@ interface UseWebRTCOptions {
   onProcessingFailed?: (payload: { message: string }) => void
 }
 
+// Try to acquire media with graceful fallback: both → audio-only → video-only → none
+async function acquireMedia(): Promise<{ stream: MediaStream | null; deviceState: DeviceState }> {
+  const api = navigator.mediaDevices
+
+  // 1. Both devices
+  try {
+    const stream = await api.getUserMedia({ audio: true, video: true })
+    return { stream, deviceState: { hasAudio: true, hasVideo: true, mediaWarning: null } }
+  } catch {}
+
+  // 2. Audio only (camera busy or unavailable)
+  try {
+    const stream = await api.getUserMedia({ audio: true, video: false })
+    return {
+      stream,
+      deviceState: {
+        hasAudio: true,
+        hasVideo: false,
+        mediaWarning: "Cámara no disponible. Entrando con solo audio.",
+      },
+    }
+  } catch {}
+
+  // 3. Video only (mic busy or unavailable)
+  try {
+    const stream = await api.getUserMedia({ audio: false, video: true })
+    return {
+      stream,
+      deviceState: {
+        hasAudio: false,
+        hasVideo: true,
+        mediaWarning: "Micrófono no disponible. Entrando con solo video.",
+      },
+    }
+  } catch {}
+
+  // 4. No media — join as listener
+  return {
+    stream: null,
+    deviceState: {
+      hasAudio: false,
+      hasVideo: false,
+      mediaWarning: "Cámara y micrófono no disponibles. Entrando como oyente.",
+    },
+  }
+}
+
 export function useWebRTC({
   meetingId,
   enabled,
@@ -46,41 +92,59 @@ export function useWebRTC({
 }: UseWebRTCOptions) {
   const [localStream, setLocalStream] = useState<MediaStream | null>(null)
   const [remoteStreams, setRemoteStreams] = useState<Record<string, RemoteStream>>({})
-  const [error, setError] = useState<string | null>(null)
+  const [criticalError, setCriticalError] = useState<string | null>(null)
+  const [deviceState, setDeviceState] = useState<DeviceState>({
+    hasAudio: false,
+    hasVideo: false,
+    mediaWarning: null,
+  })
+  // Gate signaling on media acquisition completing (any outcome).
+  // This prevents the race where meeting:room-state fires before localStream is set,
+  // causing the WebRTC offer to contain no tracks and resulting in a silent/black call.
+  const [mediaAcquired, setMediaAcquired] = useState(false)
+
   const peersRef = useRef<Record<string, RTCPeerConnection>>({})
   const participantsRef = useRef<Record<string, RemoteParticipant>>({})
   const signalingRef = useRef<ReturnType<typeof useSignaling> | null>(null)
 
-  // Get local media on mount
+  // Acquire local media with graceful fallback, then signal readiness
   useEffect(() => {
     if (!enabled) return
 
-    const accessError = getMediaAccessError()
-    if (accessError) {
-      setError(accessError)
+    if (typeof window !== "undefined" && !window.isSecureContext) {
+      setCriticalError(MEDIA_ERROR.INSECURE_CONTEXT)
+      setMediaAcquired(true) // still allow joining (listener only)
+      return
+    }
+
+    if (!navigator.mediaDevices?.getUserMedia) {
+      setDeviceState({
+        hasAudio: false,
+        hasVideo: false,
+        mediaWarning: "Tu navegador no soporta acceso a cámara/micrófono. Entrando como oyente.",
+      })
+      setMediaAcquired(true)
       return
     }
 
     let cancelled = false
     let acquiredStream: MediaStream | null = null
 
-    navigator.mediaDevices!
-      .getUserMedia({ audio: true, video: true })
-      .then((stream) => {
-        if (cancelled) {
-          stream.getTracks().forEach((t) => t.stop())
-          return
-        }
-        acquiredStream = stream
-        setLocalStream(stream)
-      })
-      .catch((err) => {
-        setError(err.message || "Could not access camera/microphone")
-      })
+    acquireMedia().then(({ stream, deviceState: ds }) => {
+      if (cancelled) {
+        stream?.getTracks().forEach((t) => t.stop())
+        return
+      }
+      acquiredStream = stream
+      setLocalStream(stream)
+      setDeviceState(ds)
+      setMediaAcquired(true)
+    })
 
     return () => {
       cancelled = true
       acquiredStream?.getTracks().forEach((t) => t.stop())
+      setMediaAcquired(false)
     }
   }, [enabled])
 
@@ -158,11 +222,12 @@ export function useWebRTC({
     })
   }, [])
 
+  // Only connect signaling after media acquisition is settled (prevents the race
+  // where onRoomState fires before localStream is set, creating offers with no tracks).
   const signaling = useSignaling({
     meetingId,
-    enabled: enabled && Boolean(localStream),
+    enabled: enabled && mediaAcquired,
     onRoomState: async (participants) => {
-      // For each existing participant, create a peer and send an offer
       for (const participant of participants) {
         const pc = createPeer(participant)
         try {
@@ -175,7 +240,6 @@ export function useWebRTC({
       }
     },
     onParticipantJoined: (participant) => {
-      // Just register; the newcomer is responsible for sending the offer
       participantsRef.current[participant.userId] = participant
     },
     onParticipantLeft: (userId) => closePeer(userId),
@@ -220,7 +284,7 @@ export function useWebRTC({
   })
   signalingRef.current = signaling
 
-  // Cleanup all peer connections on unmount or disable
+  // Cleanup all peer connections on unmount
   useEffect(() => {
     return () => {
       Object.values(peersRef.current).forEach((pc) => pc.close())
@@ -233,6 +297,8 @@ export function useWebRTC({
     localStream,
     remoteStreams: Object.values(remoteStreams),
     connected: signaling.connected,
-    error: error ?? signaling.error,
+    criticalError,
+    deviceState,
+    error: criticalError ?? signaling.error,
   }
 }

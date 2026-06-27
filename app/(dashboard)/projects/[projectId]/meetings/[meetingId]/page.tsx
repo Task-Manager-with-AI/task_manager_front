@@ -1,10 +1,13 @@
 "use client"
 
 import { useParams, useRouter } from "next/navigation"
+import { useState } from "react"
 import {
   AlertTriangle,
   ArrowLeft,
   CalendarClock,
+  Copy,
+  Check,
   FileText,
   KanbanSquare,
   Loader2,
@@ -39,6 +42,16 @@ export default function MeetingDetailPage() {
   const router = useRouter()
   const { t } = useTranslation()
   const { data: meeting, isLoading } = useMeeting(params.meetingId)
+  const [linkCopied, setLinkCopied] = useState(false)
+
+  const handleCopyRoomLink = async () => {
+    const roomUrl = `${window.location.origin}/projects/${params.projectId}/meetings/${params.meetingId}/room`
+    try {
+      await navigator.clipboard.writeText(roomUrl)
+      setLinkCopied(true)
+      setTimeout(() => setLinkCopied(false), 2000)
+    } catch {}
+  }
 
   const statusLabel = (status: MeetingStatus) => {
     const map: Record<MeetingStatus, string> = {
@@ -186,17 +199,31 @@ export default function MeetingDetailPage() {
           )}
           <div className="space-y-2">
             {canJoin && (
-              <Button
-                className="w-full"
-                onClick={() =>
-                  router.push(
-                    `/projects/${params.projectId}/meetings/${meeting.id}/room`
-                  )
-                }
-              >
-                <Video className="h-4 w-4" />
-                {t("meetings.joinCall")}
-              </Button>
+              <>
+                <Button
+                  className="w-full"
+                  onClick={() =>
+                    router.push(
+                      `/projects/${params.projectId}/meetings/${meeting.id}/room`
+                    )
+                  }
+                >
+                  <Video className="h-4 w-4" />
+                  {t("meetings.joinCall")}
+                </Button>
+                <Button
+                  className="w-full"
+                  variant="outline"
+                  onClick={handleCopyRoomLink}
+                >
+                  {linkCopied ? (
+                    <Check className="h-4 w-4 text-green-600" />
+                  ) : (
+                    <Copy className="h-4 w-4" />
+                  )}
+                  {linkCopied ? "¡Link copiado!" : "Copiar link de sala"}
+                </Button>
+              </>
             )}
             {isProcessing && (
               <div className="flex items-center gap-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-300">

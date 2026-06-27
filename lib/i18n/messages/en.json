@@ -10,6 +10,7 @@
     "chats": "Chats",
     "settings": "Settings",
     "helpSupport": "Help & Support",
+    "terms": "Terms & Conditions",
     "projectsSection": "Projects",
     "addProject": "Add project",
     "projectTasks": "My Tasks",
@@ -77,7 +78,10 @@
     "creatingAccount": "Creating account…",
     "hasAccount": "Already have an account?",
     "invalidEmail": "Invalid email",
-    "passwordRequired": "Password is required"
+    "passwordRequired": "Password is required",
+    "acceptTerms": "I agree to the",
+    "termsLink": "Terms & Conditions",
+    "termsRequired": "You must accept the terms and conditions to continue"
   },
   "projects": {
     "title": "Projects",

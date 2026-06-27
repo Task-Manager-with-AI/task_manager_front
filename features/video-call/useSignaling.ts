@@ -31,82 +31,129 @@ export function useSignaling(options: UseSignalingOptions) {
   const socketRef = useRef<Socket | null>(null)
   const [connected, setConnected] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  // Always up-to-date reference so event handlers never go stale
   const optsRef = useRef(options)
   optsRef.current = options
 
   useEffect(() => {
     if (!options.enabled || !options.meetingId) return
 
-    let socket: Socket | null = null
-    let cancelled = false
+    let active = true
 
-    void (async () => {
-      try {
-        socket = await connectRealtimeSocket()
-        if (cancelled) {
-          socket.disconnect()
-          return
-        }
+    // Named handler refs so we can remove exactly these listeners on cleanup,
+    // without accidentally removing other hooks' listeners on the shared socket.
+    const onConnect = () => {
+      if (!active) return
+      setConnected(true)
+      setError(null)
+      socketRef.current?.emit("meeting:join", { meetingId: optsRef.current.meetingId })
+    }
 
+    const onDisconnect = () => {
+      if (active) setConnected(false)
+    }
+
+    const onConnectError = (err: Error) => {
+      if (active) setError(err.message || "Connection error")
+    }
+
+    const onMeetingError = (payload: { message: string }) => {
+      if (active) setError(payload.message)
+    }
+
+    const onRoomState = (payload: { participants: RemoteParticipant[] }) => {
+      if (active) optsRef.current.onRoomState?.(payload.participants)
+    }
+
+    const onParticipantJoined = (payload: RemoteParticipant) => {
+      if (active) optsRef.current.onParticipantJoined?.(payload)
+    }
+
+    const onParticipantLeft = (payload: { userId: string }) => {
+      if (active) optsRef.current.onParticipantLeft?.(payload.userId)
+    }
+
+    const onOffer = (payload: { fromUserId: string; sdp: RTCSessionDescriptionInit }) => {
+      if (active) optsRef.current.onOffer?.(payload)
+    }
+
+    const onAnswer = (payload: { fromUserId: string; sdp: RTCSessionDescriptionInit }) => {
+      if (active) optsRef.current.onAnswer?.(payload)
+    }
+
+    const onIceCandidate = (payload: { fromUserId: string; candidate: RTCIceCandidateInit }) => {
+      if (active) optsRef.current.onIceCandidate?.(payload)
+    }
+
+    const onProcessingStarted = () => {
+      if (active) optsRef.current.onProcessingStarted?.()
+    }
+
+    const onMinutesReady = (payload: { meetingId: string; minuteId: string }) => {
+      if (active) optsRef.current.onMinutesReady?.(payload)
+    }
+
+    const onProcessingFailed = (payload: { message: string }) => {
+      if (active) optsRef.current.onProcessingFailed?.(payload)
+    }
+
+    connectRealtimeSocket()
+      .then((socket) => {
+        if (!active) return
         socketRef.current = socket
 
-        socket.on("connect", () => {
+        socket.on("connect", onConnect)
+        socket.on("disconnect", onDisconnect)
+        socket.on("connect_error", onConnectError)
+        socket.on("meeting:error", onMeetingError)
+        socket.on("meeting:room-state", onRoomState)
+        socket.on("meeting:participant-joined", onParticipantJoined)
+        socket.on("meeting:participant-left", onParticipantLeft)
+        socket.on("webrtc:offer", onOffer)
+        socket.on("webrtc:answer", onAnswer)
+        socket.on("webrtc:ice-candidate", onIceCandidate)
+        socket.on("meeting:processing-started", onProcessingStarted)
+        socket.on("meeting:minutes-ready", onMinutesReady)
+        socket.on("meeting:processing-failed", onProcessingFailed)
+
+        // If already connected when we attach, join the room right away
+        if (socket.connected) {
           setConnected(true)
           setError(null)
-          socket?.emit("meeting:join", { meetingId: options.meetingId })
-        })
-
-        socket.on("disconnect", () => setConnected(false))
-
-        socket.on("connect_error", (err) => {
-          setError(err.message || "Connection error")
-        })
-
-        socket.on("meeting:error", (payload: { message: string }) => {
-          setError(payload.message)
-        })
-
-        socket.on("meeting:room-state", (payload: { participants: RemoteParticipant[] }) => {
-          optsRef.current.onRoomState?.(payload.participants)
-        })
-
-        socket.on("meeting:participant-joined", (payload: RemoteParticipant) => {
-          optsRef.current.onParticipantJoined?.(payload)
-        })
-
-        socket.on("meeting:participant-left", (payload: { userId: string }) => {
-          optsRef.current.onParticipantLeft?.(payload.userId)
-        })
-
-        socket.on("webrtc:offer", (payload) => optsRef.current.onOffer?.(payload))
-        socket.on("webrtc:answer", (payload) => optsRef.current.onAnswer?.(payload))
-        socket.on("webrtc:ice-candidate", (payload) =>
-          optsRef.current.onIceCandidate?.(payload)
-        )
-
-        socket.on("meeting:processing-started", () =>
-          optsRef.current.onProcessingStarted?.()
-        )
-        socket.on("meeting:minutes-ready", (payload) =>
-          optsRef.current.onMinutesReady?.(payload)
-        )
-        socket.on("meeting:processing-failed", (payload) =>
-          optsRef.current.onProcessingFailed?.(payload)
-        )
-      } catch (err) {
-        setConnected(false)
-        setError(err instanceof Error ? err.message : "Connection error")
-      }
-    })()
+          socket.emit("meeting:join", { meetingId: optsRef.current.meetingId })
+        }
+      })
+      .catch((err: unknown) => {
+        if (active) setError(err instanceof Error ? err.message : "Connection error")
+      })
 
     return () => {
-      cancelled = true
-      socket?.emit("meeting:leave", { meetingId: options.meetingId })
-      socket?.disconnect()
+      active = false
+
+      const socket = socketRef.current
+      if (socket) {
+        // Leave this meeting room; keep the shared socket open for other uses (chat)
+        socket.emit("meeting:leave", { meetingId: optsRef.current.meetingId })
+
+        // Remove only the handlers we registered — not all listeners on these events
+        socket.off("connect", onConnect)
+        socket.off("disconnect", onDisconnect)
+        socket.off("connect_error", onConnectError)
+        socket.off("meeting:error", onMeetingError)
+        socket.off("meeting:room-state", onRoomState)
+        socket.off("meeting:participant-joined", onParticipantJoined)
+        socket.off("meeting:participant-left", onParticipantLeft)
+        socket.off("webrtc:offer", onOffer)
+        socket.off("webrtc:answer", onAnswer)
+        socket.off("webrtc:ice-candidate", onIceCandidate)
+        socket.off("meeting:processing-started", onProcessingStarted)
+        socket.off("meeting:minutes-ready", onMinutesReady)
+        socket.off("meeting:processing-failed", onProcessingFailed)
+      }
+
       socketRef.current = null
       setConnected(false)
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [options.enabled, options.meetingId])
 
   const sendOffer = (targetUserId: string, sdp: RTCSessionDescriptionInit) => {

@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
 import { useTranslation } from "@/components/locale-provider"
-import { Sparkles, Users } from "lucide-react"
+import { ArrowLeft, Sparkles, Users } from "lucide-react"
 import {
   useChatMessages,
   useDeleteMessage,
@@ -24,6 +24,7 @@ interface ChatWindowProps {
   currentUserId: string | null
   typingUsers: { userId: string; name: string }[]
   onTyping: (chatId: string, isTyping: boolean) => void
+  onBack?: () => void
 }
 
 function initials(name: string) {
@@ -40,6 +41,7 @@ export function ChatWindow({
   currentUserId,
   typingUsers,
   onTyping,
+  onBack,
 }: ChatWindowProps) {
   const { t } = useTranslation()
   const { data: messages, isLoading } = useChatMessages(chat.id)
@@ -93,15 +95,26 @@ export function ChatWindow({
   return (
     <div className="flex flex-1 flex-col bg-gray-50 dark:bg-gray-900">
       {/* Header */}
-      <div className="flex items-center justify-between border-b border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-800">
-        <div className="flex items-center gap-3">
-          <div className="relative">
+      <div className="flex items-center justify-between border-b border-gray-200 bg-white px-3 py-3 dark:border-gray-700 dark:bg-gray-800 sm:px-4">
+        <div className="flex min-w-0 items-center gap-2 sm:gap-3">
+          {onBack && (
+            <Button
+              variant="ghost"
+              size="icon"
+              className="shrink-0 md:hidden"
+              onClick={onBack}
+              aria-label="Volver a la lista"
+            >
+              <ArrowLeft className="h-4 w-4" />
+            </Button>
+          )}
+          <div className="relative shrink-0">
             {isGroup ? (
-              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-gradient-to-br from-blue-400 to-purple-500">
-                <Users className="h-5 w-5 text-white" />
+              <div className="flex h-9 w-9 items-center justify-center rounded-full bg-gradient-to-br from-blue-400 to-purple-500 sm:h-10 sm:w-10">
+                <Users className="h-4 w-4 text-white sm:h-5 sm:w-5" />
               </div>
             ) : (
-              <Avatar className="h-10 w-10">
+              <Avatar className="h-9 w-9 sm:h-10 sm:w-10">
                 <AvatarFallback className="bg-gray-200 text-gray-900 dark:bg-gray-600 dark:text-white">
                   {initials(chat.name)}
                 </AvatarFallback>
@@ -111,11 +124,11 @@ export function ChatWindow({
               <span className="absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full border-2 border-white bg-green-500 dark:border-gray-800" />
             )}
           </div>
-          <div>
-            <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
+          <div className="min-w-0">
+            <h2 className="truncate text-base font-semibold text-gray-900 dark:text-white sm:text-lg">
               {chat.name}
             </h2>
-            <p className="text-sm text-gray-500 dark:text-gray-400">
+            <p className="truncate text-xs text-gray-500 dark:text-gray-400 sm:text-sm">
               {statusLine()}
             </p>
           </div>
@@ -124,10 +137,11 @@ export function ChatWindow({
           <Button
             variant="outline"
             size="sm"
+            className="ml-2 shrink-0"
             onClick={() => setSummaryOpen(true)}
           >
-            <Sparkles className="mr-2 h-4 w-4" />
-            {t("chat.whatDidIMiss")}
+            <Sparkles className="h-4 w-4 sm:mr-2" />
+            <span className="hidden sm:inline">{t("chat.whatDidIMiss")}</span>
           </Button>
         )}
       </div>
