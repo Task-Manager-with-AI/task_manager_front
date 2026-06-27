@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useRef, useState } from "react"
+import { Suspense, useEffect, useRef, useState } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { useVerifyEmail, useResendVerification } from "@/features/auth/auth.hooks"
 import { ApiError } from "@/lib/api-client"
@@ -11,7 +11,7 @@ import { Input } from "@/components/ui/input"
 
 const RESEND_COOLDOWN = 60
 
-export default function VerifyEmailPage() {
+function VerifyEmailContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const email = searchParams.get("email") ?? ""
@@ -138,5 +138,13 @@ export default function VerifyEmailPage() {
         </p>
       </CardContent>
     </Card>
+  )
+}
+
+export default function VerifyEmailPage() {
+  return (
+    <Suspense fallback={null}>
+      <VerifyEmailContent />
+    </Suspense>
   )
 }
