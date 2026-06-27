@@ -49,7 +49,7 @@ export function ChatList({
   )
 
   return (
-    <div className="flex w-80 flex-col border-r border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-800">
+    <div className="flex w-full flex-col">
       <div className="border-b border-gray-200 p-4 dark:border-gray-700">
         <h1 className="mb-4 text-xl font-bold text-gray-900 dark:text-white">
           {t("chat.title")}

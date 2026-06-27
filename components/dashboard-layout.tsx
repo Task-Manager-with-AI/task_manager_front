@@ -29,6 +29,7 @@ import {
   FileText,
   Settings,
   HelpCircle,
+  ScrollText,
   User,
   LogOut,
   CheckCircle,
@@ -41,6 +42,7 @@ import {
   Menu,
   X,
   Sparkles,
+  Shield,
 } from "lucide-react"
 import { useCreateProject } from "@/features/projects/projects.hooks"
 import { useCurrentUser, useLogout } from "@/features/auth/auth.hooks"
@@ -110,6 +112,9 @@ export default function DashboardLayout({ children, projects }: DashboardLayoutP
   const [searchQuery, setSearchQuery] = useState("")
   const [expandedProjectId, setExpandedProjectId] = useState<string | null>(null)
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false)
+  const [mounted, setMounted] = useState(false)
+
+  useEffect(() => { setMounted(true) }, [])
 
   const activeProjectId = useMemo(() => {
     const match = pathname.match(/^\/projects\/([^/]+)/)
@@ -135,6 +140,8 @@ export default function DashboardLayout({ children, projects }: DashboardLayoutP
     .join("")
     .slice(0, 2)
     .toUpperCase()
+
+  const isSuperAdmin = mounted && currentUser?.role?.name === "SUPER_ADMIN"
 
   const topNavItems = [
     { name: t("nav.dashboard"), icon: BarChart3, path: "/dashboard" },
@@ -193,8 +200,21 @@ export default function DashboardLayout({ children, projects }: DashboardLayoutP
 
       {/* Scrollable body */}
       <div className="flex flex-1 flex-col overflow-y-auto">
+        {/* Super Admin banner */}
+        {isSuperAdmin && (
+          <div className="mx-3 mt-3">
+            <button
+              onClick={() => router.push("/admin")}
+              className="flex w-full items-center gap-2.5 rounded-lg bg-amber-500/10 border border-amber-400/30 px-3 py-2.5 text-sm font-semibold text-amber-700 dark:text-amber-400 transition-colors hover:bg-amber-500/20"
+            >
+              <Shield className="h-4 w-4 shrink-0" />
+              Panel de Administración
+            </button>
+          </div>
+        )}
+
         {/* Global nav */}
-        <nav className="px-3 pt-4 pb-2">
+        <nav className="px-3 pt-3 pb-2">
           {topNavItems.map((item) => (
             <button
               key={item.path}
@@ -356,6 +376,15 @@ export default function DashboardLayout({ children, projects }: DashboardLayoutP
           {t("nav.settings")}
         </button>
         <button
+          onClick={() => router.push("/terms")}
+          className={`mb-0.5 flex w-full items-center rounded-lg px-3 py-2.5 text-sm text-gray-500 transition-colors hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-700/60 ${
+            pathname === "/terms" ? "bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-200" : ""
+          }`}
+        >
+          <ScrollText className="mr-2.5 h-4 w-4" />
+          {t("nav.terms")}
+        </button>
+        <button
           onClick={() => router.push("/help")}
           className={`flex w-full items-center rounded-lg px-3 py-2.5 text-sm text-gray-500 transition-colors hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-700/60 ${
             pathname === "/help" ? "bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-200" : ""
@@ -467,6 +496,16 @@ export default function DashboardLayout({ children, projects }: DashboardLayoutP
                     </div>
                     <Separator className="bg-gray-200 dark:bg-gray-700" />
                     <div className="space-y-1">
+                      {isSuperAdmin && (
+                        <Button
+                          variant="ghost"
+                          className="w-full justify-start font-semibold text-amber-700 hover:bg-amber-50 dark:text-amber-400 dark:hover:bg-amber-900/20"
+                          onClick={() => router.push("/admin")}
+                        >
+                          <Shield className="mr-2 h-4 w-4" />
+                          Panel de Administración
+                        </Button>
+                      )}
                       <Button
                         variant="ghost"
                         className="w-full justify-start text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700"
@@ -482,6 +521,14 @@ export default function DashboardLayout({ children, projects }: DashboardLayoutP
                       >
                         <Settings className="mr-2 h-4 w-4" />
                         {t("common.accountSettings")}
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        className="w-full justify-start text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700"
+                        onClick={() => router.push("/terms")}
+                      >
+                        <ScrollText className="mr-2 h-4 w-4" />
+                        {t("nav.terms")}
                       </Button>
                       <Button
                         variant="ghost"

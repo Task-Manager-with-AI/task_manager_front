@@ -1,5 +1,6 @@
 "use client"
 
+import { useState } from "react"
 import Link from "next/link"
 import {
   LifeBuoy,
@@ -12,6 +13,8 @@ import {
   Sparkles,
   Mail,
   BookOpen,
+  Send,
+  CheckCircle2,
 } from "lucide-react"
 import {
   Card,
@@ -26,7 +29,20 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { Textarea } from "@/components/ui/textarea"
+import { useSendSupportContact } from "@/features/support/support.hooks"
+import { useCurrentUser } from "@/features/auth/auth.hooks"
+import type { ContactPayload } from "@/features/support/support.types"
 
 const QUICK_START = [
   {
@@ -114,6 +130,101 @@ const FAQS = [
     a: "Sí. Solo ves el contenido de los proyectos a los que perteneces. El Copiloto y las búsquedas respetan esos permisos y nunca mezclan datos entre proyectos.",
   },
 ]
+
+function ContactForm() {
+  const { data: currentUser } = useCurrentUser()
+  const { mutate: sendContact, isPending, isSuccess } = useSendSupportContact()
+
+  const [form, setForm] = useState<ContactPayload>({
+    subject: "",
+    message: "",
+    category: "other",
+  })
+
+  function handleSubmit(e: React.FormEvent) {
+    e.preventDefault()
+    sendContact(form)
+  }
+
+  if (isSuccess) {
+    return (
+      <div className="flex flex-col items-center gap-3 py-6 text-center">
+        <div className="flex h-12 w-12 items-center justify-center rounded-full bg-green-100 dark:bg-green-900/30">
+          <CheckCircle2 className="h-6 w-6 text-green-600 dark:text-green-400" />
+        </div>
+        <p className="font-semibold text-gray-900 dark:text-white">
+          ¡Mensaje enviado!
+        </p>
+        <p className="text-sm text-gray-500 dark:text-gray-400">
+          Te responderemos en 24–48 h a{" "}
+          <span className="font-medium">{currentUser?.email}</span>.
+        </p>
+        <Button variant="outline" size="sm" onClick={() => setForm({ subject: "", message: "", category: "other" })}>
+          Enviar otro mensaje
+        </Button>
+      </div>
+    )
+  }
+
+  return (
+    <form onSubmit={handleSubmit} className="space-y-4">
+      <div className="space-y-1.5">
+        <Label htmlFor="category">Categoría</Label>
+        <Select
+          value={form.category}
+          onValueChange={(v) => setForm((f) => ({ ...f, category: v as ContactPayload["category"] }))}
+        >
+          <SelectTrigger id="category">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="bug">Error / Bug</SelectItem>
+            <SelectItem value="feature">Solicitud de funcionalidad</SelectItem>
+            <SelectItem value="billing">Facturación</SelectItem>
+            <SelectItem value="other">Otro</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+
+      <div className="space-y-1.5">
+        <Label htmlFor="subject">Asunto</Label>
+        <Input
+          id="subject"
+          placeholder="Describe el asunto brevemente"
+          maxLength={100}
+          required
+          value={form.subject}
+          onChange={(e) => setForm((f) => ({ ...f, subject: e.target.value }))}
+        />
+      </div>
+
+      <div className="space-y-1.5">
+        <Label htmlFor="message">Mensaje</Label>
+        <Textarea
+          id="message"
+          placeholder="Cuéntanos con detalle tu consulta o problema…"
+          rows={5}
+          maxLength={2000}
+          required
+          value={form.message}
+          onChange={(e) => setForm((f) => ({ ...f, message: e.target.value }))}
+        />
+        <p className="text-right text-xs text-gray-400">{form.message.length}/2000</p>
+      </div>
+
+      <div className="flex items-center justify-between gap-3">
+        <p className="text-xs text-gray-500 dark:text-gray-400">
+          Respuesta a{" "}
+          <span className="font-medium">{currentUser?.email ?? "tu correo"}</span>
+        </p>
+        <Button type="submit" disabled={isPending}>
+          <Send className="mr-2 h-4 w-4" />
+          {isPending ? "Enviando…" : "Enviar mensaje"}
+        </Button>
+      </div>
+    </form>
+  )
+}
 
 export default function HelpPage() {
   return (
@@ -203,29 +314,20 @@ export default function HelpPage() {
         </Card>
       </section>
 
-      {/* Contact */}
+      {/* Contact form */}
       <section>
         <Card className="border-violet-200 bg-violet-50/50 dark:border-violet-900/50 dark:bg-violet-950/20">
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-base">
               <Mail className="h-5 w-5 text-violet-600 dark:text-violet-400" />
-              ¿Necesitas más ayuda?
+              Contactar con soporte
             </CardTitle>
             <CardDescription>
-              Si no encontraste lo que buscabas, escríbenos y te responderemos lo
-              antes posible.
+              Envíanos tu consulta y te responderemos en 24–48 horas.
             </CardDescription>
           </CardHeader>
-          <CardContent className="flex flex-wrap gap-3">
-            <Button asChild>
-              <a href="mailto:soporte@taskmanager.app">
-                <Mail className="mr-2 h-4 w-4" />
-                Contactar soporte
-              </a>
-            </Button>
-            <Button variant="outline" asChild>
-              <Link href="/dashboard">Volver al panel</Link>
-            </Button>
+          <CardContent>
+            <ContactForm />
           </CardContent>
         </Card>
       </section>

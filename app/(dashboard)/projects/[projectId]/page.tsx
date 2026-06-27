@@ -7,15 +7,14 @@ import { zodResolver } from "@hookform/resolvers/zod"
 import { z } from "zod"
 import { format } from "date-fns"
 import { enUS, es } from "date-fns/locale"
-import { ArrowLeft, KanbanSquare, Pencil, Plus, Trash2, UserPlus, Users, Video } from "lucide-react"
+import { ArrowLeft, Check, Copy, KanbanSquare, Link2, Mail, Pencil, Plus, Trash2, UserPlus, Users, Video } from "lucide-react"
 import {
-  useAddProjectMember,
   useDeleteProject,
   useProject,
   useProjectMembers,
   useUpdateProject,
 } from "@/features/projects/projects.hooks"
-import { useUsers } from "@/features/users/users.hooks"
+import { useCreateInviteLink, useSendInviteByEmail } from "@/features/invites/invites.hooks"
 import { useProjectTasks, useDeleteTask } from "@/features/tasks/tasks.hooks"
 import { CreateTaskDialog } from "@/features/tasks/CreateTaskDialog"
 import { getColumnStyles, type KanbanColumnColor } from "@/features/kanban/kanban.types"
@@ -53,8 +52,8 @@ type EditProjectForm = {
   description?: string
 }
 
-type AddMemberForm = {
-  userId: string
+type InviteEmailForm = {
+  email: string
   memberRole: "ADMIN" | "MEMBER" | "GUEST"
 }
 
@@ -90,10 +89,10 @@ export default function ProjectDetailPage() {
     [t]
   )
 
-  const addMemberSchema = useMemo(
+  const inviteEmailSchema = useMemo(
     () =>
       z.object({
-        userId: z.string().min(1, t("members.chooseUserRequired")),
+        email: z.string().email(t("auth.invalidEmail") ?? "Email inválido"),
         memberRole: z.enum(["ADMIN", "MEMBER", "GUEST"]).default("MEMBER"),
       }),
     [t]
@@ -123,20 +122,20 @@ export default function ProjectDetailPage() {
     return map[role] ?? role
   }
 
+  const [inviteLink, setInviteLink] = useState<string | null>(null)
+  const [inviteLinkCopied, setInviteLinkCopied] = useState(false)
+  const [inviteTab, setInviteTab] = useState<"link" | "email">("link")
+  const [inviteEmailSuccess, setInviteEmailSuccess] = useState(false)
+
   const { data: project, isLoading: projectLoading } = useProject(projectId)
   const { data: members, isLoading: membersLoading } = useProjectMembers(projectId)
-  const { data: users, isLoading: usersLoading } = useUsers()
   const { data: tasks, isLoading: tasksLoading } = useProjectTasks(projectId)
   const updateProjectMutation = useUpdateProject()
-  const addMemberMutation = useAddProjectMember(projectId)
   const deleteProjectMutation = useDeleteProject()
   const deleteTaskMutation = useDeleteTask(projectId)
+  const createInviteLinkMutation = useCreateInviteLink(projectId)
+  const sendInviteEmailMutation = useSendInviteByEmail(projectId)
 
-  const memberIds = useMemo(() => new Set((members ?? []).map((member) => member.userId)), [members])
-  const availableUsers = useMemo(
-    () => (users ?? []).filter((user) => !memberIds.has(user.id)),
-    [memberIds, users]
-  )
   const taskPendingDeletion = tasks?.find((task) => task.id === taskToDelete)
 
   const editProjectForm = useForm<EditProjectForm>({
@@ -144,9 +143,9 @@ export default function ProjectDetailPage() {
     defaultValues: { name: "", description: "" },
   })
 
-  const addMemberForm = useForm<AddMemberForm>({
-    resolver: zodResolver(addMemberSchema),
-    defaultValues: { userId: "", memberRole: "MEMBER" },
+  const addMemberForm = useForm<InviteEmailForm>({
+    resolver: zodResolver(inviteEmailSchema),
+    defaultValues: { email: "", memberRole: "MEMBER" },
   })
 
   const onUpdateProject = (data: EditProjectForm) => {
@@ -165,11 +164,23 @@ export default function ProjectDetailPage() {
     )
   }
 
-  const onAddMember = (data: AddMemberForm) => {
-    addMemberMutation.mutate(data, {
+  const onGenerateLink = async () => {
+    const result = await createInviteLinkMutation.mutateAsync({ memberRole: "MEMBER" })
+    setInviteLink(result.inviteUrl)
+  }
+
+  const onCopyInviteLink = async () => {
+    if (!inviteLink) return
+    await navigator.clipboard.writeText(inviteLink)
+    setInviteLinkCopied(true)
+    setTimeout(() => setInviteLinkCopied(false), 2000)
+  }
+
+  const onSendInviteEmail = (data: InviteEmailForm) => {
+    sendInviteEmailMutation.mutate(data, {
       onSuccess: () => {
-        addMemberForm.reset({ userId: "", memberRole: "MEMBER" })
-        setMemberDialogOpen(false)
+        setInviteEmailSuccess(true)
+        addMemberForm.reset({ email: "", memberRole: "MEMBER" })
       },
     })
   }
@@ -522,91 +533,168 @@ export default function ProjectDetailPage() {
         onOpenChange={(nextOpen) => {
           setMemberDialogOpen(nextOpen)
           if (!nextOpen) {
-            addMemberMutation.reset()
-            addMemberForm.reset({ userId: "", memberRole: "MEMBER" })
+            setInviteLink(null)
+            setInviteLinkCopied(false)
+            setInviteEmailSuccess(false)
+            setInviteTab("link")
+            addMemberForm.reset({ email: "", memberRole: "MEMBER" })
+            createInviteLinkMutation.reset()
+            sendInviteEmailMutation.reset()
           }
         }}
       >
         <DialogContent className="bg-white dark:bg-gray-800">
           <DialogHeader>
-            <DialogTitle className="text-gray-900 dark:text-white">{t("projects.addMemberTitle")}</DialogTitle>
-            <DialogDescription>{t("projects.addMemberDescription")}</DialogDescription>
+            <DialogTitle className="text-gray-900 dark:text-white">
+              Invitar miembro
+            </DialogTitle>
+            <DialogDescription>
+              Genera un link de invitación o envía un correo directamente.
+            </DialogDescription>
           </DialogHeader>
-          {addMemberMutation.error && (
-            <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700 dark:bg-red-950 dark:text-red-300" role="alert">
-              {getErrorMessage(addMemberMutation.error, t("common.somethingWrong"))}
-            </p>
-          )}
-          <Form {...addMemberForm}>
-            <form onSubmit={addMemberForm.handleSubmit(onAddMember)} className="space-y-4">
-              <FormField
-                control={addMemberForm.control}
-                name="userId"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>{t("members.user")}</FormLabel>
-                    <Select onValueChange={field.onChange} value={field.value}>
-                      <FormControl>
-                        <SelectTrigger disabled={usersLoading || availableUsers.length === 0}>
-                          <SelectValue
-                            placeholder={
-                              usersLoading ? t("members.loadingUsers") : t("members.chooseUser")
-                            }
-                          />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        {availableUsers.map((user) => (
-                          <SelectItem key={user.id} value={user.id}>
-                            {user.name} ({user.email})
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    {availableUsers.length === 0 && !usersLoading && (
-                      <p className="text-xs text-gray-500 dark:text-gray-400">
-                        {t("members.allUsersMembers")}
-                      </p>
+
+          {/* Tab switcher */}
+          <div className="flex gap-1 rounded-lg border border-gray-200 p-1 dark:border-gray-700">
+            <button
+              type="button"
+              onClick={() => setInviteTab("link")}
+              className={`flex flex-1 items-center justify-center gap-1.5 rounded-md py-1.5 text-sm font-medium transition-colors ${
+                inviteTab === "link"
+                  ? "bg-white text-gray-900 shadow-sm dark:bg-gray-700 dark:text-white"
+                  : "text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+              }`}
+            >
+              <Link2 className="h-4 w-4" />
+              Link
+            </button>
+            <button
+              type="button"
+              onClick={() => setInviteTab("email")}
+              className={`flex flex-1 items-center justify-center gap-1.5 rounded-md py-1.5 text-sm font-medium transition-colors ${
+                inviteTab === "email"
+                  ? "bg-white text-gray-900 shadow-sm dark:bg-gray-700 dark:text-white"
+                  : "text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+              }`}
+            >
+              <Mail className="h-4 w-4" />
+              Correo
+            </button>
+          </div>
+
+          {inviteTab === "link" && (
+            <div className="space-y-3">
+              <p className="text-sm text-gray-500 dark:text-gray-400">
+                El link es válido por 7 días y puede ser usado por cualquier persona con el link.
+              </p>
+              {createInviteLinkMutation.error && (
+                <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700 dark:bg-red-950 dark:text-red-300">
+                  {getErrorMessage(createInviteLinkMutation.error, t("common.somethingWrong"))}
+                </p>
+              )}
+              {inviteLink ? (
+                <div className="flex gap-2">
+                  <Input value={inviteLink} readOnly className="text-xs" />
+                  <Button variant="outline" size="icon" onClick={onCopyInviteLink}>
+                    {inviteLinkCopied ? (
+                      <Check className="h-4 w-4 text-green-600" />
+                    ) : (
+                      <Copy className="h-4 w-4" />
                     )}
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={addMemberForm.control}
-                name="memberRole"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>{t("members.role")}</FormLabel>
-                    <Select onValueChange={field.onChange} value={field.value}>
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        <SelectItem value="ADMIN">{t("projects.roleAdmin")}</SelectItem>
-                        <SelectItem value="MEMBER">{t("projects.roleMember")}</SelectItem>
-                        <SelectItem value="GUEST">{t("projects.roleGuest")}</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <div className="flex justify-end gap-2">
-                <Button type="button" variant="outline" onClick={() => setMemberDialogOpen(false)}>
+                  </Button>
+                </div>
+              ) : (
+                <Button
+                  className="w-full"
+                  onClick={onGenerateLink}
+                  disabled={createInviteLinkMutation.isPending}
+                >
+                  <Link2 className="mr-2 h-4 w-4" />
+                  {createInviteLinkMutation.isPending ? "Generando..." : "Generar link de invitación"}
+                </Button>
+              )}
+              <div className="flex justify-end">
+                <Button variant="outline" onClick={() => setMemberDialogOpen(false)}>
                   {t("common.cancel")}
                 </Button>
-                <Button
-                  type="submit"
-                  disabled={addMemberMutation.isPending || usersLoading || availableUsers.length === 0}
-                >
-                  {addMemberMutation.isPending ? t("members.adding") : t("projects.addMember")}
-                </Button>
               </div>
-            </form>
-          </Form>
+            </div>
+          )}
+
+          {inviteTab === "email" && (
+            <div className="space-y-3">
+              {inviteEmailSuccess ? (
+                <div className="flex flex-col items-center gap-3 py-4 text-center">
+                  <div className="flex h-12 w-12 items-center justify-center rounded-full bg-green-100 dark:bg-green-900/30">
+                    <Check className="h-6 w-6 text-green-600 dark:text-green-400" />
+                  </div>
+                  <p className="text-sm font-medium text-gray-900 dark:text-white">¡Invitación enviada!</p>
+                  <div className="flex gap-2">
+                    <Button variant="outline" size="sm" onClick={() => { setInviteEmailSuccess(false); sendInviteEmailMutation.reset() }}>
+                      Enviar otra
+                    </Button>
+                    <Button size="sm" onClick={() => setMemberDialogOpen(false)}>
+                      Listo
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                <>
+                  {sendInviteEmailMutation.error && (
+                    <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700 dark:bg-red-950 dark:text-red-300">
+                      {getErrorMessage(sendInviteEmailMutation.error, t("common.somethingWrong"))}
+                    </p>
+                  )}
+                  <Form {...addMemberForm}>
+                    <form onSubmit={addMemberForm.handleSubmit(onSendInviteEmail)} className="space-y-4">
+                      <FormField
+                        control={addMemberForm.control}
+                        name="email"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Correo del invitado</FormLabel>
+                            <FormControl>
+                              <Input type="email" placeholder="nombre@empresa.com" {...field} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={addMemberForm.control}
+                        name="memberRole"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>{t("members.role")}</FormLabel>
+                            <Select onValueChange={field.onChange} value={field.value}>
+                              <FormControl>
+                                <SelectTrigger>
+                                  <SelectValue />
+                                </SelectTrigger>
+                              </FormControl>
+                              <SelectContent>
+                                <SelectItem value="ADMIN">{t("projects.roleAdmin")}</SelectItem>
+                                <SelectItem value="MEMBER">{t("projects.roleMember")}</SelectItem>
+                                <SelectItem value="GUEST">{t("projects.roleGuest")}</SelectItem>
+                              </SelectContent>
+                            </Select>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <div className="flex justify-end gap-2">
+                        <Button type="button" variant="outline" onClick={() => setMemberDialogOpen(false)}>
+                          {t("common.cancel")}
+                        </Button>
+                        <Button type="submit" disabled={sendInviteEmailMutation.isPending}>
+                          {sendInviteEmailMutation.isPending ? "Enviando..." : "Enviar invitación"}
+                        </Button>
+                      </div>
+                    </form>
+                  </Form>
+                </>
+              )}
+            </div>
+          )}
         </DialogContent>
       </Dialog>
 

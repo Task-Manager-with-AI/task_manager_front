@@ -67,19 +67,31 @@
   }
 }
 
+@supports (padding-bottom: env(safe-area-inset-bottom)) {
+  .pb-safe {
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+}
+
 @layer base {
   * {
     @apply border-border;
   }
 
   html {
-    /* Prevent horizontal scroll at all sizes */
-    overflow-x: hidden;
+    height: 100%;
+    /* overflow:hidden on BOTH html AND body is required. If only body has it,
+       browsers propagate body's overflow to the viewport, which clips
+       position:fixed elements (the feedback widget disappears).
+       With html also set to hidden, propagation is blocked — the viewport
+       stays unaffected and fixed elements remain anchored to it. */
+    overflow: hidden;
   }
 
   body {
+    height: 100%;
+    overflow: hidden;
     @apply bg-background text-foreground;
-    /* Fluid base size applied to body for all rem-based sizing */
     font-size: var(--text-base);
     line-height: 1.6;
   }
