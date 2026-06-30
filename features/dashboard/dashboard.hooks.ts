@@ -3,10 +3,10 @@
 import { useQuery } from "@tanstack/react-query"
 import { dashboardApi } from "./dashboard.api"
 
-export function useDashboardOverview(projectId?: string) {
+export function useDashboardOverview(projectId?: string, sprintId?: string) {
   return useQuery({
-    queryKey: ["dashboard", "overview", projectId ?? "all"],
-    queryFn: () => dashboardApi.overview(projectId),
+    queryKey: ["dashboard", "overview", projectId ?? "all", sprintId ?? "none"],
+    queryFn: () => dashboardApi.overview(projectId, sprintId),
     staleTime: 60_000,
   })
 }

@@ -482,6 +482,9 @@
     "guest": "User",
     "filterProject": "Filter by project",
     "allProjects": "All my projects",
+    "filterSprint": "Filter by sprint",
+    "selectSprint": "Select a sprint",
+    "noSprints": "This project doesn't have any sprints yet",
     "projectsSection": "Project status",
     "chartsSection": "Scrum charts",
     "progress": "Progress",
@@ -490,6 +493,10 @@
     "openProject": "Open project {name}",
     "noProjects": "You don't have any assigned projects yet.",
     "loadError": "Could not load the dashboard. Please try again.",
+    "selectSprintPrompt": {
+      "title": "Pick a sprint to see its charts",
+      "description": "Select the sprint you want to analyze in \"{project}\" to see its burndown, burnup, and other metrics."
+    },
     "kpis": {
       "activeProjects": "Active projects",
       "openTasks": "Open tasks",
