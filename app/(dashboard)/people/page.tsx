@@ -11,7 +11,7 @@ import { getMockPersonForUser, getTeamById, isPersonWorking } from "@/lib/people
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Card, CardContent } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
 
@@ -80,7 +80,6 @@ export default function PeoplePage() {
               <Card key={user.id} className="border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-800">
                 <CardContent className="flex items-start gap-4 p-5">
                   <Avatar className="h-14 w-14 shrink-0">
-                    <AvatarImage src={mock.imageURL} alt={user.name} />
                     <AvatarFallback className="bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300">
                       {user.name
                         .split(" ")

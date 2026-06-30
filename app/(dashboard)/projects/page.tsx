@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { z } from "zod"
-import { Plus, FolderOpen, Trash2 } from "lucide-react"
+import { Plus, FolderOpen, Trash2, ListTodo, Trophy } from "lucide-react"
 import { useProjects, useCreateProject, useDeleteProject } from "@/features/projects/projects.hooks"
 import { useTranslation } from "@/components/locale-provider"
 import { Button } from "@/components/ui/button"
@@ -199,14 +199,34 @@ export default function ProjectsPage() {
                   {t("projects.created")} {format(new Date(project.createdAt), "MMM d, yyyy")}
                 </p>
               </CardContent>
-              <CardFooter className="justify-between gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => router.push(`/projects/${project.id}`)}
-                >
-                  {t("projects.open")}
-                </Button>
+              <CardFooter className="flex-wrap justify-between gap-2">
+                <div className="flex items-center gap-1.5">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => router.push(`/projects/${project.id}`)}
+                  >
+                    {t("projects.open")}
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="gap-1 text-gray-500 hover:text-indigo-600"
+                    onClick={() => router.push(`/projects/${project.id}/backlog`)}
+                  >
+                    <ListTodo className="h-3.5 w-3.5" />
+                    <span className="hidden sm:inline">Backlog</span>
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="gap-1 text-gray-500 hover:text-amber-600"
+                    onClick={() => router.push(`/projects/${project.id}/backlog?tab=increment`)}
+                  >
+                    <Trophy className="h-3.5 w-3.5" />
+                    <span className="hidden sm:inline">Completados</span>
+                  </Button>
+                </div>
                 <Button
                   variant="ghost"
                   size="icon"

@@ -1,7 +1,6 @@
 export interface Person {
   id: string
   name: string
-  imageURL: string
   email: string
   workingHours: {
     start: string // 24-hour format like "09:00"
@@ -23,7 +22,6 @@ export const people: Person[] = [
   {
     id: "people_0",
     name: "Lily Grace",
-    imageURL: "https://res.cloudinary.com/ds574fco0/image/upload/v1753690876/people/0_riwhwx.jpg",
     email: "lily.grace@company.com",
     workingHours: { start: "09:00", end: "17:00", timezone: "UTC" },
     team: "design",
@@ -31,7 +29,6 @@ export const people: Person[] = [
   {
     id: "people_1",
     name: "Adam Reid",
-    imageURL: "https://res.cloudinary.com/ds574fco0/image/upload/v1753690877/people/1_ndgrxc.jpg",
     email: "adam.reid@company.com",
     workingHours: { start: "08:00", end: "16:00", timezone: "UTC" },
     team: "dev",
@@ -39,7 +36,6 @@ export const people: Person[] = [
   {
     id: "people_2",
     name: "Owen Scott",
-    imageURL: "https://res.cloudinary.com/ds574fco0/image/upload/v1753690877/people/2_qz3dx8.jpg",
     email: "owen.scott@company.com",
     workingHours: { start: "10:00", end: "18:00", timezone: "UTC" },
     team: "qa",
@@ -47,7 +43,6 @@ export const people: Person[] = [
   {
     id: "people_3",
     name: "Mia Belle",
-    imageURL: "https://res.cloudinary.com/ds574fco0/image/upload/v1753690878/people/3_kfxcej.jpg",
     email: "mia.belle@company.com",
     workingHours: { start: "09:30", end: "17:30", timezone: "UTC" },
     team: "design",
@@ -55,7 +50,6 @@ export const people: Person[] = [
   {
     id: "people_4",
     name: "Zoe Jane",
-    imageURL: "https://res.cloudinary.com/ds574fco0/image/upload/v1753690877/people/4_ci0ymm.jpg",
     email: "zoe.jane@company.com",
     workingHours: { start: "07:00", end: "15:00", timezone: "UTC" },
     team: "product",
@@ -63,7 +57,6 @@ export const people: Person[] = [
   {
     id: "people_5",
     name: "Ella Rae",
-    imageURL: "https://res.cloudinary.com/ds574fco0/image/upload/v1753690880/people/5_piun9q.jpg",
     email: "ella.rae@company.com",
     workingHours: { start: "09:00", end: "17:00", timezone: "UTC" },
     team: "marketing",
@@ -71,7 +64,6 @@ export const people: Person[] = [
   {
     id: "people_6",
     name: "Miles Parker",
-    imageURL: "https://res.cloudinary.com/ds574fco0/image/upload/v1753690879/people/6_fyrri9.jpg",
     email: "miles.parker@company.com",
     workingHours: { start: "08:30", end: "16:30", timezone: "UTC" },
     team: "dev",
@@ -79,7 +71,6 @@ export const people: Person[] = [
   {
     id: "people_7",
     name: "Nora Quinn",
-    imageURL: "https://res.cloudinary.com/ds574fco0/image/upload/v1753690880/people/7_jhk8k6.jpg",
     email: "nora.quinn@company.com",
     workingHours: { start: "10:00", end: "18:00", timezone: "UTC" },
     team: "qa",
@@ -87,7 +78,6 @@ export const people: Person[] = [
   {
     id: "people_8",
     name: "Caleb Knox",
-    imageURL: "https://res.cloudinary.com/ds574fco0/image/upload/v1753690880/people/8_y7nrrp.jpg",
     email: "caleb.knox@company.com",
     workingHours: { start: "09:00", end: "17:00", timezone: "UTC" },
     team: "dev",
@@ -95,7 +85,6 @@ export const people: Person[] = [
   {
     id: "people_9",
     name: "Isla Brooke",
-    imageURL: "https://res.cloudinary.com/ds574fco0/image/upload/v1753690881/people/9_oyi177.jpg",
     email: "isla.brooke@company.com",
     workingHours: { start: "08:00", end: "16:00", timezone: "UTC" },
     team: "design",
@@ -103,7 +92,6 @@ export const people: Person[] = [
   {
     id: "people_10",
     name: "Cole Bennett",
-    imageURL: "https://res.cloudinary.com/ds574fco0/image/upload/v1753690881/people/10_ah36jq.jpg",
     email: "cole.bennett@company.com",
     workingHours: { start: "11:00", end: "19:00", timezone: "UTC" },
     team: "product",
@@ -111,7 +99,6 @@ export const people: Person[] = [
   {
     id: "people_11",
     name: "Lucy Pearl",
-    imageURL: "https://res.cloudinary.com/ds574fco0/image/upload/v1753690876/people/11_jjng4x.jpg",
     email: "lucy.pearl@company.com",
     workingHours: { start: "09:00", end: "17:00", timezone: "UTC" },
     team: "product",
@@ -119,7 +106,6 @@ export const people: Person[] = [
   {
     id: "people_12",
     name: "Maya Lynn",
-    imageURL: "https://res.cloudinary.com/ds574fco0/image/upload/v1753690876/people/12_egrkib.jpg",
     email: "maya.lynn@company.com",
     workingHours: { start: "08:30", end: "16:30", timezone: "UTC" },
     team: "marketing",
@@ -127,7 +113,6 @@ export const people: Person[] = [
   {
     id: "people_13",
     name: "Anna Leigh",
-    imageURL: "https://res.cloudinary.com/ds574fco0/image/upload/v1753690878/people/13_mjcvdj.jpg",
     email: "anna.leigh@company.com",
     workingHours: { start: "10:30", end: "18:30", timezone: "UTC" },
     team: "qa",
@@ -135,7 +120,6 @@ export const people: Person[] = [
   {
     id: "people_14",
     name: "Sadie Jo",
-    imageURL: "https://res.cloudinary.com/ds574fco0/image/upload/v1753690880/people/14_breddm.jpg",
     email: "sadie.jo@company.com",
     workingHours: { start: "07:30", end: "15:30", timezone: "UTC" },
     team: "dev",
@@ -143,7 +127,6 @@ export const people: Person[] = [
   {
     id: "people_15",
     name: "Jack Ryan",
-    imageURL: "https://res.cloudinary.com/ds574fco0/image/upload/v1753690879/people/15_h5rxq3.jpg",
     email: "jack.ryan@company.com",
     workingHours: { start: "09:30", end: "17:30", timezone: "UTC" },
     team: "marketing",
@@ -164,7 +147,7 @@ export const getTeamById = (teamId: string) => {
 }
 
 // Deterministically map any real userId to a mock Person for visual enrichment
-// (imageURL, team, workingHours). Stable per userId — same user always gets the same avatar.
+// (team, workingHours). Stable per userId — same user always gets the same slot.
 export function getMockPersonForUser(userId: string): Person {
   const hash = userId.split("").reduce((acc, ch) => acc + ch.charCodeAt(0), 0)
   return people[hash % people.length]

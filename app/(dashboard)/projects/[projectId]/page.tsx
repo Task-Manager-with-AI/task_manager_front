@@ -7,7 +7,7 @@ import { zodResolver } from "@hookform/resolvers/zod"
 import { z } from "zod"
 import { format } from "date-fns"
 import { enUS, es } from "date-fns/locale"
-import { ArrowLeft, Check, Copy, KanbanSquare, Link2, Mail, Pencil, Plus, Trash2, UserPlus, Users, Video } from "lucide-react"
+import { ArrowLeft, Check, Copy, KanbanSquare, Link2, ListTodo, Mail, Pencil, Plus, Trash2, UserPlus, Users, Video } from "lucide-react"
 import {
   useDeleteProject,
   useProject,
@@ -31,7 +31,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { getMockPersonForUser } from "@/lib/people"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"
@@ -262,6 +262,10 @@ export default function ProjectDetailPage() {
         </div>
 
         <div className="flex flex-wrap gap-2 lg:justify-end">
+          <Button variant="outline" onClick={() => router.push(`/projects/${projectId}/backlog`)}>
+            <ListTodo className="w-4 h-4" />
+            Bolsa de Tareas
+          </Button>
           <Button variant="outline" onClick={() => router.push(`/projects/${projectId}/kanban`)}>
             <KanbanSquare className="w-4 h-4" />
             {t("projects.kanban")}
@@ -311,7 +315,6 @@ export default function ProjectDetailPage() {
                   className="flex items-center gap-2 rounded-md border border-gray-200 px-3 py-2 text-sm dark:border-gray-700"
                 >
                   <Avatar className="h-7 w-7">
-                    <AvatarImage src={mock.imageURL} alt={member.user.name} />
                     <AvatarFallback className="bg-gray-200 text-xs text-gray-900 dark:bg-gray-700 dark:text-white">
                       {getInitials(member.user.name)}
                     </AvatarFallback>

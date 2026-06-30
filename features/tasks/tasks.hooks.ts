@@ -4,10 +4,18 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { tasksApi } from "./tasks.api"
 import type { Task, CreateTaskDto, UpdateTaskDto } from "./tasks.types"
 
-export function useProjectTasks(projectId: string) {
+export function useProjectTasks(projectId: string, scope?: "backlog" | "kanban" | "all") {
   return useQuery({
-    queryKey: ["tasks", projectId],
-    queryFn: () => tasksApi.listByProject(projectId),
+    queryKey: ["tasks", projectId, scope ?? "all"],
+    queryFn: () => tasksApi.listByProject(projectId, scope),
+    enabled: Boolean(projectId),
+  })
+}
+
+export function useBacklogTasks(projectId: string) {
+  return useQuery({
+    queryKey: ["backlog", projectId],
+    queryFn: () => tasksApi.listBacklog(projectId),
     enabled: Boolean(projectId),
   })
 }
@@ -18,6 +26,7 @@ export function useCreateTask(projectId: string) {
     mutationFn: (dto: CreateTaskDto) => tasksApi.create(projectId, dto),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["tasks", projectId] })
+      queryClient.invalidateQueries({ queryKey: ["backlog", projectId] })
       queryClient.invalidateQueries({ queryKey: ["kanban-columns", projectId] })
     },
   })
@@ -64,6 +73,7 @@ export function useDeleteTask(projectId: string) {
     mutationFn: (id: string) => tasksApi.delete(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["tasks", projectId] })
+      queryClient.invalidateQueries({ queryKey: ["backlog", projectId] })
       queryClient.invalidateQueries({ queryKey: ["kanban-columns", projectId] })
     },
   })
