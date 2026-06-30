@@ -8,6 +8,7 @@ import { z } from "zod"
 import {
   ArrowLeft,
   Check,
+  FileText,
   KanbanSquare,
   Pencil,
   Plus,
@@ -76,6 +77,7 @@ export default function MinutesPage() {
   const acceptMutation = useAcceptSuggestion(minute?.id ?? "", params.projectId)
 
   const [editingId, setEditingId] = useState<string | null>(null)
+  const [showTranscript, setShowTranscript] = useState(false)
 
   if (isLoading) {
     return (
@@ -103,6 +105,8 @@ export default function MinutesPage() {
   }
 
   const items = suggestions ?? minute.taskSuggestions ?? []
+  const transcript = minute.transcript.trim()
+  const hasTranscript = transcript.length > 0
 
   return (
     <div className="p-4 sm:p-6">
@@ -125,14 +129,28 @@ export default function MinutesPage() {
             <p className="text-sm text-gray-500 dark:text-gray-400">{t("minutes.subtitle")}</p>
           </div>
         </div>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => router.push(`/projects/${params.projectId}/kanban`)}
-        >
-          <KanbanSquare className="mr-1.5 h-4 w-4" />
-          {t("minutes.goToKanban")}
-        </Button>
+        <div className="flex flex-wrap items-center gap-2">
+          {hasTranscript && (
+            <Button
+              variant="outline"
+              size="sm"
+              aria-expanded={showTranscript}
+              aria-controls="meeting-transcript"
+              onClick={() => setShowTranscript((value) => !value)}
+            >
+              <FileText className="mr-1.5 h-4 w-4" />
+              {showTranscript ? t("minutes.hideTranscript") : t("minutes.showTranscript")}
+            </Button>
+          )}
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => router.push(`/projects/${params.projectId}/kanban`)}
+          >
+            <KanbanSquare className="mr-1.5 h-4 w-4" />
+            {t("minutes.goToKanban")}
+          </Button>
+        </div>
       </div>
 
       <div className="grid gap-4 lg:grid-cols-3">
@@ -178,6 +196,23 @@ export default function MinutesPage() {
           )}
         </section>
       </div>
+
+      {showTranscript && hasTranscript && (
+        <section
+          id="meeting-transcript"
+          className="mt-4 rounded-lg border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-800"
+        >
+          <h2 className="mb-3 flex items-center gap-2 text-sm font-semibold text-gray-900 dark:text-white">
+            <FileText className="h-4 w-4" />
+            {t("minutes.transcript")}
+          </h2>
+          <div className="max-h-96 overflow-y-auto rounded-md border border-gray-200 bg-gray-50 p-3 dark:border-gray-700 dark:bg-gray-900">
+            <p className="whitespace-pre-wrap text-sm leading-6 text-gray-700 dark:text-gray-300">
+              {transcript}
+            </p>
+          </div>
+        </section>
+      )}
 
       <section className="mt-6">
         <h2 className="mb-3 flex items-center gap-2 text-lg font-semibold text-gray-900 dark:text-white">
