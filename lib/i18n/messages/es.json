@@ -485,6 +485,9 @@
     "guest": "Usuario",
     "filterProject": "Filtrar por proyecto",
     "allProjects": "Todos mis proyectos",
+    "filterSprint": "Filtrar por sprint",
+    "selectSprint": "Selecciona un sprint",
+    "noSprints": "Este proyecto no tiene sprints todavía",
     "projectsSection": "Estado de proyectos",
     "chartsSection": "Gráficos Scrum",
     "progress": "Progreso",
@@ -493,6 +496,10 @@
     "openProject": "Abrir proyecto {name}",
     "noProjects": "No tienes proyectos asignados todavía.",
     "loadError": "No se pudo cargar el panel. Intenta de nuevo.",
+    "selectSprintPrompt": {
+      "title": "Elige un sprint para ver sus gráficos",
+      "description": "Selecciona el sprint del proyecto \"{project}\" que quieres analizar para ver el burndown, burnup y demás métricas."
+    },
     "kpis": {
       "activeProjects": "Proyectos activos",
       "openTasks": "Tareas abiertas",

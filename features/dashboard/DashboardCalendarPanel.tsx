@@ -61,7 +61,7 @@ export function DashboardCalendarPanel({ projectId }: Props) {
             onSelect={setSelected}
             month={month}
             onMonthChange={setMonth}
-            className="w-full rounded-lg border border-border/50 p-2"
+            className="w-full rounded-lg border border-border/50"
             modifiers={{ taskDue: taskDays, meeting: meetingDays, sprintEnd: sprintDays }}
             modifiersClassNames={{
               taskDue: "[&>button]:after:absolute [&>button]:after:bottom-1 [&>button]:after:left-1/2 [&>button]:after:-translate-x-1/2 [&>button]:after:h-1 [&>button]:after:w-1 [&>button]:after:rounded-full [&>button]:after:bg-amber-500",
