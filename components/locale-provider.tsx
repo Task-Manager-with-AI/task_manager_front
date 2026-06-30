@@ -14,7 +14,7 @@ const LocaleContext = React.createContext<LocaleContextValue | null>(null)
 
 function readStoredLocale(): Locale {
   const stored = localStorage.getItem(LOCALE_STORAGE_KEY)
-  return stored === "es" ? "es" : DEFAULT_LOCALE
+  return stored === "en" || stored === "es" ? stored : DEFAULT_LOCALE
 }
 
 export function LocaleProvider({ children }: { children: React.ReactNode }) {

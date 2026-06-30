@@ -29,14 +29,25 @@ function SidebarContent({ pathname, onNavigate }: { pathname: string; onNavigate
   return (
     <div className="flex h-full flex-col bg-slate-950 text-slate-100">
       {/* Logo */}
-      <div className="flex items-center gap-2.5 border-b border-slate-800 px-4 py-4">
-        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-amber-500 text-slate-950">
-          <Shield className="h-4 w-4" />
+      <div className="flex items-center justify-between border-b border-slate-800 px-4 py-4">
+        <div className="flex items-center gap-2.5">
+          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-amber-500 text-slate-950">
+            <Shield className="h-4 w-4" />
+          </div>
+          <div>
+            <p className="text-sm font-semibold leading-tight">Task Manager</p>
+            <p className="text-[10px] font-medium uppercase tracking-widest text-amber-400/80">Admin</p>
+          </div>
         </div>
-        <div>
-          <p className="text-sm font-semibold leading-tight">Task Manager</p>
-          <p className="text-[10px] font-medium uppercase tracking-widest text-amber-400/80">Admin</p>
-        </div>
+        {onNavigate && (
+          <button
+            onClick={onNavigate}
+            className="lg:hidden rounded-md p-1.5 text-slate-400 hover:bg-slate-800 hover:text-slate-100"
+            aria-label="Cerrar menú"
+          >
+            <X className="h-5 w-5" />
+          </button>
+        )}
       </div>
 
       {/* Nav */}

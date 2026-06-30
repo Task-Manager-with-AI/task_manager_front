@@ -26,6 +26,7 @@ type CreateTaskForm = {
   dueDate?: string
   priority: "LOW" | "MEDIUM" | "HIGH"
   responsibleId?: string
+  storyPoints: number
 }
 
 interface CreateTaskDialogProps {
@@ -64,6 +65,7 @@ export function CreateTaskDialog({
         dueDate: z.string().optional(),
         priority: z.enum(["LOW", "MEDIUM", "HIGH"]).default("MEDIUM"),
         responsibleId: z.string().optional(),
+        storyPoints: z.coerce.number().int().min(1).max(100).default(1),
       }),
     [t]
   )
@@ -76,6 +78,7 @@ export function CreateTaskDialog({
       dueDate: "",
       priority: "MEDIUM",
       responsibleId: "unassigned",
+      storyPoints: 1,
     },
   })
 
@@ -89,6 +92,7 @@ export function CreateTaskDialog({
         dueDate: "",
         priority: "MEDIUM",
         responsibleId: "unassigned",
+        storyPoints: 1,
       })
     }
   }
@@ -102,6 +106,7 @@ export function CreateTaskDialog({
         priority: data.priority,
         responsibleId: data.responsibleId === "unassigned" ? undefined : data.responsibleId,
         columnId: defaultColumnId,
+        storyPoints: data.storyPoints,
       },
       {
         onSuccess: () => handleOpenChange(false),
@@ -155,19 +160,6 @@ export function CreateTaskDialog({
             <div className="grid gap-4 sm:grid-cols-2">
               <FormField
                 control={form.control}
-                name="dueDate"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>{t("tasks.dueDate")}</FormLabel>
-                    <FormControl>
-                      <Input type="datetime-local" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
                 name="priority"
                 render={({ field }) => (
                   <FormItem>
@@ -188,32 +180,60 @@ export function CreateTaskDialog({
                   </FormItem>
                 )}
               />
-            </div>
-            <FormField
-              control={form.control}
-              name="responsibleId"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>{t("tasks.responsible")}</FormLabel>
-                  <Select onValueChange={field.onChange} value={field.value}>
+              <FormField
+                control={form.control}
+                name="storyPoints"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Story Points</FormLabel>
                     <FormControl>
-                      <SelectTrigger disabled={membersLoading}>
-                        <SelectValue placeholder={t("tasks.chooseResponsible")} />
-                      </SelectTrigger>
+                      <Input type="number" min={1} max={100} {...field} />
                     </FormControl>
-                    <SelectContent>
-                      <SelectItem value="unassigned">{t("tasks.unassigned")}</SelectItem>
-                      {members?.map((member) => (
-                        <SelectItem key={member.userId} value={member.userId}>
-                          {member.user.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <FormField
+                control={form.control}
+                name="responsibleId"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>{t("tasks.responsible")}</FormLabel>
+                    <Select onValueChange={field.onChange} value={field.value}>
+                      <FormControl>
+                        <SelectTrigger disabled={membersLoading}>
+                          <SelectValue placeholder={t("tasks.chooseResponsible")} />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="unassigned">{t("tasks.unassigned")}</SelectItem>
+                        {members?.map((member) => (
+                          <SelectItem key={member.userId} value={member.userId}>
+                            {member.user.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="dueDate"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>{t("tasks.dueDate")}</FormLabel>
+                    <FormControl>
+                      <Input type="date" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
             <div className="flex justify-end gap-2">
               <Button type="button" variant="outline" onClick={() => handleOpenChange(false)}>
                 {t("common.cancel")}
@@ -228,4 +248,3 @@ export function CreateTaskDialog({
     </Dialog>
   )
 }
-

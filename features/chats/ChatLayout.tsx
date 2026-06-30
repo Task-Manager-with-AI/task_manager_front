@@ -57,7 +57,7 @@ export function ChatLayout() {
       {/* Sidebar: full-width on mobile (toggled), fixed width on md+ */}
       <div
         className={[
-          "flex flex-col border-r border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-800",
+          "flex h-full flex-col border-r border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-800",
           "w-full shrink-0 md:w-80",
           mobileView === "chat" ? "hidden md:flex" : "flex",
         ].join(" ")}
@@ -74,7 +74,7 @@ export function ChatLayout() {
       {/* Chat panel: hidden on mobile when list is shown */}
       <div
         className={[
-          "flex flex-1 flex-col",
+          "flex min-h-0 flex-1 flex-col",
           mobileView === "list" ? "hidden md:flex" : "flex",
         ].join(" ")}
       >

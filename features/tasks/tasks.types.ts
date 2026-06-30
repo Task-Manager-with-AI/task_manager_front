@@ -13,7 +13,10 @@ export interface Task {
   description?: string | null
   dueDate?: string | null
   priority: TaskPriority
-  columnId: string
+  columnId?: string | null
+  sprintId?: string | null
+  storyPoints: number
+  completedAt?: string | null
   projectId: string
   createdById: string
   responsibleId?: string | null
@@ -22,7 +25,7 @@ export interface Task {
   createdBy?: { id: string; name: string; email: string }
   responsible?: { id: string; name: string; email: string }
   project?: { id: string; name: string }
-  column?: TaskColumn
+  column?: TaskColumn | null
 }
 
 export interface CreateTaskDto {
@@ -32,6 +35,8 @@ export interface CreateTaskDto {
   priority?: TaskPriority
   responsibleId?: string
   columnId?: string
+  sprintId?: string
+  storyPoints?: number
 }
 
 export interface UpdateTaskDto {
@@ -40,4 +45,6 @@ export interface UpdateTaskDto {
   dueDate?: string | null
   priority?: TaskPriority
   responsibleId?: string | null
+  sprintId?: string | null
+  storyPoints?: number
 }

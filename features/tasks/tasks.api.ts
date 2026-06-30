@@ -2,8 +2,12 @@ import { apiClient } from "@/lib/api-client"
 import type { Task, CreateTaskDto, UpdateTaskDto } from "./tasks.types"
 
 export const tasksApi = {
-  listByProject: (projectId: string) =>
-    apiClient.get<Task[]>(`/projects/${projectId}/tasks`),
+  listByProject: (projectId: string, scope?: "backlog" | "kanban" | "all") => {
+    const qs = scope ? `?scope=${scope}` : ""
+    return apiClient.get<Task[]>(`/projects/${projectId}/tasks${qs}`)
+  },
+  listBacklog: (projectId: string) =>
+    apiClient.get<Task[]>(`/projects/${projectId}/tasks/backlog`),
   get: (id: string) => apiClient.get<Task>(`/tasks/${id}`),
   create: (projectId: string, dto: CreateTaskDto) =>
     apiClient.post<Task>(`/projects/${projectId}/tasks`, dto),

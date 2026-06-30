@@ -78,7 +78,7 @@ function UserActions({
   async function handleOpenChat() {
     try {
       const chat = await chatsApi.direct(user.id)
-      router.push(`/chats?chatId=${chat.id}`)
+      router.push(`/admin/support?chatId=${chat.id}`)
     } catch { /* ignore */ }
   }
 
